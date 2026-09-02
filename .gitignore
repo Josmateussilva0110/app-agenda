@@ -1,0 +1,71 @@
+# ================================================================
+# Minha Agenda — app mobile (Expo)
+# ================================================================
+
+# ── Dependências ────────────────────────────────────────────────
+node_modules/
+
+# ── Variáveis de ambiente (segredos) ───────────────────────────
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# ── Logs e debug ────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Sistema operacional ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDEs e editores ─────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── TypeScript ──────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ── Frontend (Expo / React Native) ─────────────────────────────
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# Pastas nativas geradas pelo prebuild (quando regeneradas)
+ios/
+
+# ── Android ─────────────────────────────────────────────────────
+android/build/
+android/.gradle/
+android/local.properties
+android/.cxx/
+android/.build-config-hash
+android/app/build/
+*.apk
+*.aab
+*.jks
+*.keystore
+.kotlin/
+
+# Certificados e provisioning (iOS/Android)
+*.pem
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# ── Build / artefatos de deploy ─────────────────────────────────
+build/
+
+# ── Docker / cache ───────────────────────────────────────────────
+.cache/
+tmp/
+temp/

@@ -1,0 +1,24 @@
+services:
+  build-apk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - CI=1
+      - NODE_ENV=production
+      - CLEAN_PREBUILD=${CLEAN_PREBUILD:-0}
+    volumes:
+      - .:/app
+      - ./docker/entrypoint-build.sh:/usr/local/bin/entrypoint-build.sh:ro
+      - ./build:/app/build
+      - gradle-cache:/root/.gradle
+      - android-cache:/root/.android-cache
+      - expo-cache:/root/.expo
+
+volumes:
+  gradle-cache:
+    name: agenda-gradle-cache
+  android-cache:
+    name: agenda-android-project
+  expo-cache:
+    name: agenda-expo-cache

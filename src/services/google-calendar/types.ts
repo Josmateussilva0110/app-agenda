@@ -1,0 +1,24 @@
+export type GoogleCalendarEventDate = {
+  date?: string;
+  dateTime?: string;
+  timeZone?: string;
+};
+
+export type GoogleCalendarEvent = {
+  id: string;
+  status?: string;
+  summary?: string;
+  description?: string;
+  start: GoogleCalendarEventDate;
+  end: GoogleCalendarEventDate;
+};
+
+export type GoogleCalendarEventsResponse = {
+  items?: GoogleCalendarEvent[];
+};
+
+export type GoogleCalendarSyncResult = {
+  imported: number;
+  exported: number;
+  updated: number;
+};
