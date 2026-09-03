@@ -14,6 +14,7 @@ import { AgendaFab } from "@/features/agenda/components/agenda-fab";
 import { DayPeriodSection } from "@/features/agenda/components/day-period-section";
 import { GoogleAccountButton } from "@/features/agenda/components/google-account-button";
 import { GoogleCalendarSyncPanel } from "@/features/agenda/components/google-calendar-sync-panel";
+import { ThemeToggleButton } from "@/features/agenda/components/theme-toggle-button";
 import { NewTaskModal } from "@/features/agenda/components/new-task-modal";
 import { NotificationPermissionBanner } from "@/features/agenda/components/notification-permission-banner";
 import { useGoogleCalendar } from "@/hooks/use-google-calendar";
@@ -136,12 +137,15 @@ export function AgendaScreen() {
             <Text style={styles.title}>Minha Agenda</Text>
           </View>
 
-          {googleConnected && googleAccount ? (
-            <GoogleAccountButton
-              account={googleAccount}
-              onDisconnect={disconnectGoogle}
-            />
-          ) : null}
+          <View style={styles.headerActions}>
+            <ThemeToggleButton />
+            {googleConnected && googleAccount ? (
+              <GoogleAccountButton
+                account={googleAccount}
+                onDisconnect={disconnectGoogle}
+              />
+            ) : null}
+          </View>
         </View>
 
         {googleConfigured && googleConnected ? googleSyncPanel : null}
@@ -222,6 +226,11 @@ const createStyles = (
       flex: 1,
       minHeight: 64,
       justifyContent: "center",
+    },
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
     },
     todayLabel: {
       fontSize: 13,

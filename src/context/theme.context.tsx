@@ -1,53 +1,80 @@
 import { useMemo } from "react";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react";
+import { StatusBar } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { settingsStorage } from "@/storage/settings.storage";
 
-export type ThemeMode = keyof typeof Colors;
+export const THEME_MODES = ["light", "dark"] as const;
+export type ThemeMode = (typeof THEME_MODES)[number];
 export type ThemeColors = (typeof Colors)[ThemeMode];
 
 interface ThemeContextValue {
   mode: ThemeMode;
   colors: ThemeColors;
   isDark: boolean;
-  setTheme: (mode: ThemeMode) => Promise<void>;
   isLoading: boolean;
+  setTheme: (mode: ThemeMode) => Promise<void>;
+  toggleTheme: () => Promise<void>;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>("light");
-  const [isLoading, setIsLoading] = useState(true);
+function resolveInitialTheme(): ThemeMode {
+  return settingsStorage.getTheme() ?? "light";
+}
 
-  useEffect(() => {
-    const saved = settingsStorage.getTheme();
-    if (saved) setMode(saved);
-    setIsLoading(false);
-  }, []);
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [mode, setMode] = useState<ThemeMode>(resolveInitialTheme);
+  const [isLoading] = useState(false);
 
   const setTheme = useCallback(async (newMode: ThemeMode) => {
     setMode(newMode);
     await settingsStorage.setTheme(newMode);
   }, []);
 
+  const toggleTheme = useCallback(async () => {
+    const nextMode: ThemeMode = mode === "light" ? "dark" : "light";
+    await setTheme(nextMode);
+  }, [mode, setTheme]);
+
+  const colors = Colors[mode];
+
   const value = useMemo<ThemeContextValue>(
     () => ({
       mode,
-      colors: Colors[mode],
+      colors,
       isDark: mode === "dark",
-      setTheme,
       isLoading,
+      setTheme,
+      toggleTheme,
     }),
-    [mode, setTheme, isLoading]
+    [colors, isLoading, mode, setTheme, toggleTheme]
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      <StatusBar
+        barStyle={colors.statusBarStyle}
+        backgroundColor={colors.background}
+      />
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme deve ser usado dentro de ThemeProvider");
-  return ctx;
+  const context = useContext(ThemeContext);
+
+  if (!context) {
+    throw new Error("useTheme deve ser usado dentro de ThemeProvider.");
+  }
+
+  return context;
 }

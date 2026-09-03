@@ -14,12 +14,25 @@ import {
 } from "@expo-google-fonts/plus-jakarta-sans";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
-import { ThemeProvider } from "@/context/theme.context";
+import { ThemeProvider, useTheme } from "@/context/theme.context";
 import { DatabaseProvider } from "@/providers/database-provider";
 import { initializeNotifications } from "@/services/notifications/task-notifications.service";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function RootNavigator() {
+  const { colors } = useTheme();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    />
+  );
+}
 
 export default function RootLayout() {
   useFonts({
@@ -50,7 +63,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <DatabaseProvider>
           <ThemeProvider>
-            <Stack screenOptions={{ headerShown: false }} />
+            <RootNavigator />
           </ThemeProvider>
         </DatabaseProvider>
       </SafeAreaProvider>
