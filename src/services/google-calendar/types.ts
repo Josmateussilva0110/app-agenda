@@ -22,3 +22,9 @@ export type GoogleCalendarSyncResult = {
   exported: number;
   updated: number;
 };
+
+export type GoogleAccountProfile = {
+  name: string | null;
+  email: string;
+  photoUrl: string | null;
+};

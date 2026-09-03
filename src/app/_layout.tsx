@@ -17,6 +17,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ThemeProvider } from "@/context/theme.context";
 import { DatabaseProvider } from "@/providers/database-provider";
 import { initializeNotifications } from "@/services/notifications/task-notifications.service";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -46,11 +47,13 @@ export default function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <DatabaseProvider>
-        <ThemeProvider>
-          <Stack screenOptions={{ headerShown: false }} />
-        </ThemeProvider>
-      </DatabaseProvider>
+      <SafeAreaProvider>
+        <DatabaseProvider>
+          <ThemeProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+          </ThemeProvider>
+        </DatabaseProvider>
+      </SafeAreaProvider>
     </AppErrorBoundary>
   );
 }

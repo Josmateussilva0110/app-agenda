@@ -10,6 +10,7 @@ import {
   getGoogleCalendarConfig,
   GOOGLE_CALENDAR_SCOPES,
 } from "@/services/google-calendar/config";
+import type { GoogleAccountProfile } from "@/services/google-calendar/types";
 
 const TOKEN_STORAGE_KEY = "google_calendar_tokens";
 
@@ -131,6 +132,20 @@ export async function getGoogleAccessToken(): Promise<string | null> {
 export async function hasGoogleAccountConnected(): Promise<boolean> {
   configureGoogleSignIn();
   return GoogleSignin.hasPreviousSignIn();
+}
+
+export function getGoogleAccountProfile(): GoogleAccountProfile | null {
+  configureGoogleSignIn();
+  const current = GoogleSignin.getCurrentUser();
+  if (!current) {
+    return null;
+  }
+
+  return {
+    name: current.user.name,
+    email: current.user.email,
+    photoUrl: current.user.photo,
+  };
 }
 
 export async function disconnectGoogleAccount(): Promise<void> {

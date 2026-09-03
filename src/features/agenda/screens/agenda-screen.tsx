@@ -7,11 +7,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AgendaCalendar } from "@/features/agenda/components/agenda-calendar";
 import { AgendaFab } from "@/features/agenda/components/agenda-fab";
 import { DayPeriodSection } from "@/features/agenda/components/day-period-section";
+import { GoogleAccountButton } from "@/features/agenda/components/google-account-button";
 import { GoogleCalendarSyncPanel } from "@/features/agenda/components/google-calendar-sync-panel";
 import { NewTaskModal } from "@/features/agenda/components/new-task-modal";
 import { NotificationPermissionBanner } from "@/features/agenda/components/notification-permission-banner";
@@ -25,13 +26,15 @@ import { formatDayMonth, isToday } from "@/utils/date";
 
 export function AgendaScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.bottom), [colors, insets.bottom]);
   const { selectedDate, selectedDateKey, setSelectedDate } = useSelectedDate();
   const { tasks, loading, error, refresh, addTask, removeTask, toggleTaskComplete } =
     useTasks(selectedDateKey);
   const {
     configured: googleConfigured,
     connected: googleConnected,
+    account: googleAccount,
     syncing: googleSyncing,
     error: googleError,
     lastResult: googleLastResult,
@@ -99,10 +102,22 @@ export function AgendaScreen() {
     ? `${googleLastResult.imported} importado(s), ${googleLastResult.exported} exportado(s), ${googleLastResult.updated} atualizado(s).`
     : null;
 
+  const googleSyncPanel = (
+    <GoogleCalendarSyncPanel
+      configured={googleConfigured}
+      connected={googleConnected}
+      syncing={googleSyncing}
+      error={googleError}
+      lastMessage={googleLastMessage}
+      onConnect={connectGoogle}
+      onSync={handleGoogleSync}
+    />
+  );
+
   const emptyDay = tasks.length === 0;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -113,21 +128,27 @@ export function AgendaScreen() {
           />
         }
       >
-        <Text style={styles.todayLabel}>{isToday(selectedDate) ? "Hoje" : "Agenda"}</Text>
-        <Text style={styles.title}>Minha Agenda</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text style={styles.todayLabel}>
+              {isToday(selectedDate) ? "Hoje" : "Agenda"}
+            </Text>
+            <Text style={styles.title}>Minha Agenda</Text>
+          </View>
+
+          {googleConnected && googleAccount ? (
+            <GoogleAccountButton
+              account={googleAccount}
+              onDisconnect={disconnectGoogle}
+            />
+          ) : null}
+        </View>
+
+        {googleConfigured && googleConnected ? googleSyncPanel : null}
 
         <NotificationPermissionBanner onEnabled={() => setBannerTick((v) => v + 1)} />
 
-        <GoogleCalendarSyncPanel
-          configured={googleConfigured}
-          connected={googleConnected}
-          syncing={googleSyncing}
-          error={googleError}
-          lastMessage={googleLastMessage}
-          onConnect={connectGoogle}
-          onDisconnect={disconnectGoogle}
-          onSync={handleGoogleSync}
-        />
+        {googleConfigured && !googleConnected ? googleSyncPanel : null}
 
         <View style={styles.calendarWrap}>
           <AgendaCalendar
@@ -177,7 +198,10 @@ export function AgendaScreen() {
   );
 }
 
-const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+const createStyles = (
+  colors: ReturnType<typeof useTheme>["colors"],
+  bottomInset: number
+) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -185,13 +209,24 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     },
     content: {
       paddingHorizontal: 20,
-      paddingBottom: 120,
+      paddingBottom: 96 + Math.max(bottomInset, 12),
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 16,
+      marginTop: 8,
+    },
+    headerText: {
+      flex: 1,
+      minHeight: 64,
+      justifyContent: "center",
     },
     todayLabel: {
       fontSize: 13,
       fontWeight: "600",
       color: colors.textMuted,
-      marginTop: 8,
     },
     title: {
       fontSize: 34,

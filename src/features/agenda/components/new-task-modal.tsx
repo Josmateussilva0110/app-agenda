@@ -65,6 +65,7 @@ export function NewTaskModal({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const bottomInset = Math.max(insets.bottom, 12);
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(visible);
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
@@ -299,11 +300,18 @@ export function NewTaskModal({
         <Animated.View
           style={[
             styles.sheetWrap,
-            { paddingBottom: keyboardHeight > 0 ? 0 : insets.bottom },
             sheetStyle,
           ]}
         >
-          <View style={styles.sheet}>
+          <View
+            style={[
+              styles.sheet,
+              {
+                paddingBottom:
+                  24 + (keyboardHeight > 0 ? 0 : bottomInset),
+              },
+            ]}
+          >
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Nova tarefa</Text>
               <Pressable
@@ -440,7 +448,9 @@ export function NewTaskModal({
                       ? Math.round(keyboardHeight * 0.35)
                       : keyboardHeight
                   }
-                  extra={KEYBOARD_SAFE_EXTRA}
+                  extra={
+                    KEYBOARD_SAFE_EXTRA + (keyboardHeight > 0 ? 0 : bottomInset)
+                  }
                 />
               </View>
             </ScrollView>
@@ -471,7 +481,6 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       borderTopRightRadius: 28,
       paddingTop: 20,
       paddingHorizontal: 20,
-      paddingBottom: 24,
       maxHeight: "100%",
     },
     header: {

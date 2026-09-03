@@ -2,7 +2,7 @@
   "expo": {
     "name": "Minha Agenda",
     "slug": "minha-agenda",
-    "version": "1.0.8",
+    "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "minhaagenda",

@@ -1,7 +1,8 @@
-import { useMemo } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Check, Circle, Trash2 } from "lucide-react-native";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useTheme } from "@/context/theme.context";
 import type { Task } from "@/types/task";
 
@@ -15,71 +16,85 @@ export function TaskItem({ task, onToggleComplete, onRemove }: TaskItemProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const isCompleted = task.status === "completed";
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
-  const handleRemovePress = () => {
-    Alert.alert(
-      "Remover tarefa",
-      `Deseja remover "${task.title}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Remover",
-          style: "destructive",
-          onPress: () => {
-            void onRemove(task.id);
-          },
-        },
-      ]
-    );
+  const handleConfirmRemove = async () => {
+    setRemoving(true);
+
+    try {
+      await onRemove(task.id);
+      setConfirmVisible(false);
+    } finally {
+      setRemoving(false);
+    }
   };
 
   return (
-    <View style={[styles.taskItem, isCompleted && styles.taskItemCompleted]}>
-      <Pressable
-        onPress={() => void onToggleComplete(task.id)}
-        hitSlop={8}
-        style={styles.checkButton}
-        accessibilityLabel={
-          isCompleted ? `Desmarcar tarefa ${task.title}` : `Concluir tarefa ${task.title}`
-        }
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: isCompleted }}
-      >
-        {isCompleted ? (
-          <View style={styles.checkIconFilled}>
-            <Check size={14} color={colors.onPrimary} strokeWidth={3} />
-          </View>
-        ) : (
-          <Circle size={22} color={colors.border} strokeWidth={2} />
-        )}
-      </Pressable>
+    <>
+      <View style={[styles.taskItem, isCompleted && styles.taskItemCompleted]}>
+        <Pressable
+          onPress={() => void onToggleComplete(task.id)}
+          hitSlop={8}
+          style={styles.checkButton}
+          accessibilityLabel={
+            isCompleted ? `Desmarcar tarefa ${task.title}` : `Concluir tarefa ${task.title}`
+          }
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isCompleted }}
+        >
+          {isCompleted ? (
+            <View style={styles.checkIconFilled}>
+              <Check size={14} color={colors.onPrimary} strokeWidth={3} />
+            </View>
+          ) : (
+            <Circle size={22} color={colors.border} strokeWidth={2} />
+          )}
+        </Pressable>
 
-      <View style={styles.content}>
-        <Text style={[styles.taskTitle, isCompleted && styles.completedText]}>
-          {task.title}
-        </Text>
-        {task.description ? (
-          <Text style={[styles.taskDescription, isCompleted && styles.completedText]}>
-            {task.description}
+        <View style={styles.content}>
+          <Text style={[styles.taskTitle, isCompleted && styles.completedText]}>
+            {task.title}
           </Text>
-        ) : null}
-        {task.notifyAt ? (
-          <Text style={[styles.taskTime, isCompleted && styles.completedText]}>
-            Lembrete às {task.notifyAt}
-          </Text>
-        ) : null}
+          {task.description ? (
+            <Text style={[styles.taskDescription, isCompleted && styles.completedText]}>
+              {task.description}
+            </Text>
+          ) : null}
+          {task.notifyAt ? (
+            <Text style={[styles.taskTime, isCompleted && styles.completedText]}>
+              Lembrete às {task.notifyAt}
+            </Text>
+          ) : null}
+        </View>
+
+        <Pressable
+          onPress={() => setConfirmVisible(true)}
+          hitSlop={8}
+          style={styles.deleteButton}
+          accessibilityLabel={`Remover tarefa ${task.title}`}
+          accessibilityRole="button"
+        >
+          <Trash2 size={18} color={colors.danger} />
+        </Pressable>
       </View>
 
-      <Pressable
-        onPress={handleRemovePress}
-        hitSlop={8}
-        style={styles.deleteButton}
-        accessibilityLabel={`Remover tarefa ${task.title}`}
-        accessibilityRole="button"
-      >
-        <Trash2 size={18} color={colors.danger} />
-      </Pressable>
-    </View>
+      <ConfirmDialog
+        visible={confirmVisible}
+        title="Remover tarefa"
+        message={`Deseja remover "${task.title}"?`}
+        confirmLabel="Remover"
+        cancelLabel="Cancelar"
+        destructive
+        loading={removing}
+        onConfirm={() => void handleConfirmRemove()}
+        onCancel={() => {
+          if (!removing) {
+            setConfirmVisible(false);
+          }
+        }}
+      />
+    </>
   );
 }
 

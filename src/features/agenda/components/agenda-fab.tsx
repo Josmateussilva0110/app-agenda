@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Plus } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { premiumFabShadow } from "@/constants/elevation";
 import { useTheme } from "@/context/theme.context";
@@ -11,7 +12,11 @@ type AgendaFabProps = {
 
 export function AgendaFab({ onPress }: AgendaFabProps) {
   const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(
+    () => createStyles(colors, Math.max(insets.bottom, 12)),
+    [colors, insets.bottom]
+  );
 
   return (
     <View style={[styles.wrap, premiumFabShadow(isDark)]}>
@@ -22,13 +27,16 @@ export function AgendaFab({ onPress }: AgendaFabProps) {
   );
 }
 
-const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+const createStyles = (
+  colors: ReturnType<typeof useTheme>["colors"],
+  bottomInset: number
+) =>
   StyleSheet.create({
     wrap: {
       position: "absolute",
       left: 0,
       right: 0,
-      bottom: 24,
+      bottom: 16 + bottomInset,
       alignItems: "center",
     },
     button: {

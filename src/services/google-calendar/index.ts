@@ -1,6 +1,7 @@
 import {
   connectGoogleAccount,
   disconnectGoogleAccount,
+  getGoogleAccountProfile,
   hasGoogleAccountConnected,
 } from "@/services/google-calendar/auth";
 import { isGoogleCalendarConfigured } from "@/services/google-calendar/config";
@@ -8,12 +9,15 @@ import {
   deleteLinkedGoogleCalendarEvent,
   syncGoogleCalendarForDate,
 } from "@/services/google-calendar/sync";
-import type { GoogleCalendarSyncResult } from "@/services/google-calendar/types";
+import type {
+  GoogleAccountProfile,
+  GoogleCalendarSyncResult,
+} from "@/services/google-calendar/types";
 import { settingsStorage } from "@/storage/settings.storage";
 
 export type GoogleCalendarSyncStatus = "idle" | "syncing" | "error";
 
-export type { GoogleCalendarSyncResult };
+export type { GoogleAccountProfile, GoogleCalendarSyncResult };
 
 export const googleCalendarService = {
   isConfigured(): boolean {
@@ -26,6 +30,10 @@ export const googleCalendarService = {
     }
 
     return hasGoogleAccountConnected();
+  },
+
+  getAccountProfile(): GoogleAccountProfile | null {
+    return getGoogleAccountProfile();
   },
 
   async connect(): Promise<void> {

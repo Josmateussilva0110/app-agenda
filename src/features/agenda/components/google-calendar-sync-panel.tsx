@@ -6,8 +6,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { CalendarSync, Link2, Unlink } from "lucide-react-native";
+import { CalendarSync } from "lucide-react-native";
 
+import { GoogleGIcon } from "@/features/agenda/components/google-g-icon";
 import { useTheme } from "@/context/theme.context";
 
 type GoogleCalendarSyncPanelProps = {
@@ -17,7 +18,6 @@ type GoogleCalendarSyncPanelProps = {
   error: string | null;
   lastMessage: string | null;
   onConnect: () => Promise<void>;
-  onDisconnect: () => Promise<void>;
   onSync: () => Promise<void>;
 };
 
@@ -28,7 +28,6 @@ export function GoogleCalendarSyncPanel({
   error,
   lastMessage,
   onConnect,
-  onDisconnect,
   onSync,
 }: GoogleCalendarSyncPanelProps) {
   const { colors } = useTheme();
@@ -37,7 +36,9 @@ export function GoogleCalendarSyncPanel({
   if (!configured) {
     return (
       <View style={styles.card}>
-        <CalendarSync size={18} color={colors.textSecondary} />
+        <View style={styles.cardIcon}>
+          <CalendarSync size={18} color={colors.textSecondary} />
+        </View>
         <View style={styles.textBlock}>
           <Text style={styles.title}>Google Agenda</Text>
           <Text style={styles.subtitle}>
@@ -48,58 +49,61 @@ export function GoogleCalendarSyncPanel({
     );
   }
 
-  return (
-    <View style={styles.card}>
-      <CalendarSync size={18} color={colors.primary} />
-      <View style={styles.textBlock}>
-        <Text style={styles.title}>Google Agenda</Text>
-        <Text style={styles.subtitle}>
-          {connected
-            ? "Sincronize manualmente os eventos da semana."
-            : "Conecte sua conta para importar e exportar eventos."}
-        </Text>
-
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        {lastMessage ? <Text style={styles.successText}>{lastMessage}</Text> : null}
-
-        <View style={styles.actions}>
-          {!connected ? (
-            <Pressable
-              onPress={() => void onConnect()}
-              disabled={syncing}
-              style={[styles.button, styles.buttonPrimary]}
-            >
-              <Link2 size={16} color={colors.onPrimary} />
-              <Text style={styles.buttonPrimaryText}>Conectar Google</Text>
-            </Pressable>
-          ) : (
-            <>
-              <Pressable
-                onPress={() => void onSync()}
-                disabled={syncing}
-                style={[styles.button, styles.buttonPrimary]}
-              >
-                {syncing ? (
-                  <ActivityIndicator color={colors.onPrimary} size="small" />
-                ) : (
-                  <CalendarSync size={16} color={colors.onPrimary} />
-                )}
-                <Text style={styles.buttonPrimaryText}>
-                  {syncing ? "Sincronizando..." : "Sincronizar agenda"}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => void onDisconnect()}
-                disabled={syncing}
-                style={[styles.button, styles.buttonGhost]}
-              >
-                <Unlink size={16} color={colors.textSecondary} />
-                <Text style={styles.buttonGhostText}>Desconectar</Text>
-              </Pressable>
-            </>
-          )}
+  if (!connected) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardIcon}>
+          <CalendarSync size={18} color={colors.primary} />
         </View>
+        <View style={styles.textBlock}>
+          <Text style={styles.title}>Google Agenda</Text>
+          <Text style={styles.subtitle}>
+            Conecte sua conta para importar e exportar eventos.
+          </Text>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <Pressable
+            onPress={() => void onConnect()}
+            disabled={syncing}
+            style={[styles.connectButton, syncing && styles.buttonDisabled]}
+          >
+            {syncing ? (
+              <ActivityIndicator color={colors.text} size="small" />
+            ) : (
+              <>
+                <GoogleGIcon size={18} />
+                <Text style={styles.connectButtonText}>Conectar Google</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.connectedWrap}>
+      <View style={styles.connectedRow}>
+        <Pressable
+          onPress={() => void onSync()}
+          disabled={syncing}
+          style={[styles.syncButton, syncing && styles.buttonDisabled]}
+          accessibilityLabel="Sincronizar Google Agenda"
+        >
+          {syncing ? (
+            <ActivityIndicator color={colors.primary} size="small" />
+          ) : (
+            <CalendarSync size={20} color={colors.primary} />
+          )}
+        </Pressable>
+
+        {error || lastMessage ? (
+          <View style={styles.statusWrap}>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {lastMessage ? <Text style={styles.successText}>{lastMessage}</Text> : null}
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -111,12 +115,19 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       flexDirection: "row",
       alignItems: "flex-start",
       gap: 12,
-      marginTop: 12,
+      marginTop: 16,
       padding: 16,
       borderRadius: 18,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.card,
+    },
+    cardIcon: {
+      width: 24,
+      height: 24,
+      marginTop: 1,
+      alignItems: "center",
+      justifyContent: "center",
     },
     textBlock: {
       flex: 1,
@@ -134,43 +145,60 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     },
     errorText: {
       fontSize: 12,
+      lineHeight: 16,
       color: colors.error,
     },
     successText: {
       fontSize: 12,
+      lineHeight: 16,
       color: colors.primary,
       fontWeight: "600",
     },
-    actions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginTop: 4,
-    },
-    button: {
+    connectButton: {
+      alignSelf: "flex-start",
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      justifyContent: "center",
+      gap: 10,
+      marginTop: 4,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       borderRadius: 999,
-    },
-    buttonPrimary: {
-      backgroundColor: colors.primary,
-    },
-    buttonPrimaryText: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.onPrimary,
-    },
-    buttonGhost: {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.backgroundElement,
     },
-    buttonGhostText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: colors.textSecondary,
+    connectButtonText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    connectedWrap: {
+      marginTop: 12,
+      width: "100%",
+    },
+    connectedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-start",
+      gap: 12,
+    },
+    statusWrap: {
+      flex: 1,
+      gap: 4,
+      justifyContent: "center",
+    },
+    syncButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    buttonDisabled: {
+      opacity: 0.6,
     },
   });
