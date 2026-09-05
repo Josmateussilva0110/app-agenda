@@ -39,6 +39,8 @@ export type RecurringTask = {
   time: string;
   weekdays: Weekday[];
   active: boolean;
+  notify: boolean;
+  notificationIds: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -48,6 +50,7 @@ export type CreateRecurringTaskInput = {
   description?: string | null;
   time: string;
   weekdays: Weekday[];
+  notify?: boolean;
 };
 
 export type UpdateRecurringTaskInput = Partial<CreateRecurringTaskInput> & {

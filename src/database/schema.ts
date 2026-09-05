@@ -44,4 +44,6 @@ export const SCHEMA_STATEMENTS = [
   );`,
   `ALTER TABLE tasks ADD COLUMN recurring_task_id TEXT;`,
   `CREATE INDEX IF NOT EXISTS idx_tasks_recurring_task_id ON tasks(recurring_task_id, date);`,
+  `ALTER TABLE recurring_tasks ADD COLUMN notify INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE recurring_tasks ADD COLUMN notification_ids TEXT;`,
 ] as const;

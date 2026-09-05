@@ -18,6 +18,7 @@ export const newRecurringTaskSchema = z.object({
   weekdays: z
     .array(z.number().int().min(0).max(6))
     .min(1, "Escolha ao menos um dia da semana."),
+  notify: z.boolean(),
 });
 
 export type NewRecurringTaskFormValues = z.infer<typeof newRecurringTaskSchema>;

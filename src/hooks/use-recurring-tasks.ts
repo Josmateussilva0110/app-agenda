@@ -6,6 +6,10 @@ import {
   listRecurringTasks,
   updateRecurringTask,
 } from "@/database/repositories/recurring-tasks.repository";
+import {
+  cancelRecurringTaskNotifications,
+  scheduleRecurringTaskNotifications,
+} from "@/services/notifications/recurring-task-notifications.service";
 import type {
   CreateRecurringTaskInput,
   RecurringTask,
@@ -38,6 +42,7 @@ export function useRecurringTasks() {
   const addRecurringTask = useCallback(
     async (input: CreateRecurringTaskInput) => {
       const created = await createRecurringTask(input);
+      await scheduleRecurringTaskNotifications(created);
       await refresh();
       return created;
     },
@@ -47,6 +52,7 @@ export function useRecurringTasks() {
   const editRecurringTask = useCallback(
     async (id: string, input: UpdateRecurringTaskInput) => {
       const updated = await updateRecurringTask(id, input);
+      await scheduleRecurringTaskNotifications(updated);
       await refresh();
       return updated;
     },
@@ -55,10 +61,15 @@ export function useRecurringTasks() {
 
   const removeRecurringTask = useCallback(
     async (id: string) => {
+      const current = recurringTasks.find((task) => task.id === id);
+      if (current) {
+        await cancelRecurringTaskNotifications(current.notificationIds);
+      }
+
       await deleteRecurringTask(id);
       await refresh();
     },
-    [refresh]
+    [recurringTasks, refresh]
   );
 
   const toggleRecurringTaskActive = useCallback(
@@ -66,7 +77,8 @@ export function useRecurringTasks() {
       const current = recurringTasks.find((task) => task.id === id);
       if (!current) return;
 
-      await updateRecurringTask(id, { active: !current.active });
+      const updated = await updateRecurringTask(id, { active: !current.active });
+      await scheduleRecurringTaskNotifications(updated);
       await refresh();
     },
     [recurringTasks, refresh]

@@ -10,6 +10,7 @@ O **Minha Agenda** é um app **local-first**: os dados principais ficam no próp
 | **Banco de dados** | SQLite (SQLCipher) no dispositivo | Persistência de tarefas e configurações |
 | **Integração externa** | Google Calendar API + Google Sign-In | Sincronizar eventos com a conta Google |
 | **Notificações** | expo-notifications (sistema Android) | Lembretes no horário da tarefa |
+| **Exportação de imagem** | react-native-view-shot + expo-sharing | Gerar e compartilhar o mural da rotina semanal como PNG |
 
 ---
 
@@ -18,7 +19,10 @@ O **Minha Agenda** é um app **local-first**: os dados principais ficam no próp
 - Calendário mensal com dias marcados que possuem tarefas
 - Tarefas organizadas por período do dia (manhã, tarde, noite)
 - Criação de tarefas com horário e lembrete local
-- Tema claro/escuro
+- **Mural de rotina semanal**: cadastro de tarefas recorrentes (título, horário, dias da semana) exibidas em uma matriz dia × horário
+- **Compartilhar mural**: exporta a matriz de rotina como imagem (PNG) e abre o menu de compartilhamento nativo do celular
+- Tema claro/escuro, com sincronização da cor da barra de navegação do Android
+- Navegação por abas (Agenda / Mural)
 - Conexão com Google Agenda (OAuth)
 - Sincronização manual ou automática ao salvar tarefa (quando notificação + Google estão ativos)
 - Lembretes configuráveis no Google Calendar (ex.: 10 min antes)
@@ -31,10 +35,11 @@ O **Minha Agenda** é um app **local-first**: os dados principais ficam no próp
 ```mermaid
 flowchart TB
     subgraph Frontend["Frontend (App React Native)"]
-        UI["Telas e componentes\n(features/agenda)"]
-        Hooks["Hooks\n(use-tasks, use-google-calendar)"]
+        UI["Telas e componentes\n(features/agenda, features/recurring)"]
+        Hooks["Hooks\n(use-tasks, use-recurring-tasks, use-google-calendar)"]
         Services["Serviços\n(notifications, google-calendar)"]
-        Repo["Repositórios\n(tasks, settings)"]
+        Repo["Repositórios\n(tasks, recurring-tasks, settings)"]
+        Export["Exportação\n(view-shot + expo-sharing)"]
     end
 
     subgraph Local["Dados locais (dispositivo)"]
@@ -51,6 +56,7 @@ flowchart TB
     UI --> Hooks
     Hooks --> Services
     Hooks --> Repo
+    UI --> Export
     Services --> Repo
     Repo --> SQLite
     Services --> SecureStore
@@ -68,20 +74,26 @@ flowchart TB
 
 ```
 src/
-  app/                    # Rotas (Expo Router)
-  features/agenda/        # UI: calendário, tarefas, modais, painel Google
-  hooks/                  # use-tasks, use-google-calendar, use-selected-date
+  app/
+    (tabs)/                # Abas do app (Agenda, Mural) via Expo Router
+  features/
+    agenda/                # UI: calendário, tarefas, modais, painel Google
+    recurring/             # UI: mural de rotina semanal
+      components/          # Matriz de rotina, modal de criação/edição, view de exportação
+      screens/              # RecurringScreen (mural)
+      utils/                # build-recurring-matrix (monta a matriz dia x horário)
+  hooks/                  # use-tasks, use-recurring-tasks, use-google-calendar, use-selected-date
   database/
     client.ts             # Abertura do SQLite + SQLCipher
     schema.ts             # Migrações e tabelas
-    repositories/         # CRUD de tarefas e settings
+    repositories/         # CRUD de tarefas, tarefas recorrentes e settings
   services/
     notifications/        # Agendamento de lembretes locais
     google-calendar/      # OAuth, sync, API do Calendar
   storage/                # Cache em memória das preferências
-  context/                # Tema (claro/escuro)
+  context/                # Tema (claro/escuro) + cor da barra de navegação
   constants/              # Cores, validação, opções do Google
-  types/                  # Tipos TypeScript (Task, etc.)
+  types/                  # Tipos TypeScript (Task, RecurringTask, etc.)
   utils/                  # Datas, horários, concorrência
 ```
 
@@ -202,6 +214,44 @@ flowchart TD
 
 - Canal Android: `task-reminders` (alta prioridade)
 - ID da notificação salvo em `tasks.notification_id` para cancelar ao concluir/remover
+
+---
+
+## Fluxo: Mural de rotina semanal
+
+Tarefas recorrentes ficam em uma tabela própria (`recurring_tasks`), separada das tarefas do dia. Cada rotina tem título, horário e uma lista de dias da semana em que se repete.
+
+```mermaid
+flowchart LR
+    A["RecurringScreen\n(Mural)"] --> B["use-recurring-tasks"]
+    B --> C["recurring-tasks.repository"]
+    C --> D[("SQLite\nrecurring_tasks")]
+    A --> E["build-recurring-matrix"]
+    E --> F["RecurringMatrix\n(grade dia x horário)"]
+```
+
+- `buildRecurringMatrix` agrupa as rotinas por horário único e por célula `dia-horário`, montando a grade exibida na tela
+- Tocar em uma tarefa da matriz abre o modal de edição (`NewRecurringTaskModal`), que também permite excluir a rotina
+
+### Compartilhar o mural como imagem
+
+```mermaid
+sequenceDiagram
+    participant User as Usuário
+    participant Screen as RecurringScreen
+    participant ExportView as RecurringMatrixExportView
+    participant Shot as react-native-view-shot
+    participant Share as expo-sharing
+
+    User->>Screen: Toca no ícone de compartilhar
+    Screen->>Shot: captureRef(exportView, "png")
+    Shot-->>Screen: URI da imagem temporária
+    Screen->>Share: shareAsync(uri)
+    Share-->>User: Abre menu nativo de compartilhamento
+```
+
+- `RecurringMatrixExportView` é uma versão da matriz renderizada fora da tela (invisível ao usuário) e usada só para gerar a imagem
+- Não há upload para nenhum servidor: o compartilhamento usa o menu nativo do sistema (WhatsApp, e-mail, etc.)
 
 ---
 

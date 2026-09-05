@@ -1,24 +1,16 @@
 import { Platform } from "react-native";
 
 import { setTaskNotificationId } from "@/database/repositories/tasks.repository";
+import {
+  ensureNotificationPermission,
+  getNotificationsModule,
+  type NotificationsModule,
+} from "@/services/notifications/notifications-core";
 import { settingsStorage } from "@/storage/settings.storage";
 import type { Task } from "@/types/task";
 import { buildNotifyDate } from "@/utils/task-time";
 
-type NotificationsModule = typeof import("expo-notifications");
-
 const TASK_REMINDER_CHANNEL_ID = "task-reminders";
-
-async function getNotificationsModule(): Promise<NotificationsModule | null> {
-  if (Platform.OS === "web") return null;
-
-  try {
-    return await import("expo-notifications");
-  } catch (error) {
-    console.warn("[notifications] Módulo indisponível.", error);
-    return null;
-  }
-}
 
 async function ensureNotificationChannel(
   Notifications: NotificationsModule
@@ -35,26 +27,6 @@ async function ensureNotificationChannel(
     enableVibrate: true,
     showBadge: true,
   });
-}
-
-async function ensureNotificationPermission(
-  Notifications: NotificationsModule
-): Promise<boolean> {
-  const current = await Notifications.getPermissionsAsync();
-  if (current.granted) return true;
-
-  const requested = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowBadge: true,
-      allowSound: true,
-    },
-  });
-
-  return (
-    requested.granted ||
-    requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
-  );
 }
 
 export async function initializeNotifications(): Promise<void> {

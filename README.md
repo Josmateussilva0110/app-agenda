@@ -1,12 +1,13 @@
 # Minha Agenda
 
-App mobile de agenda diária com calendário, tarefas por período (manhã, tarde, noite) e notificações locais.
+App mobile de agenda diária com calendário, tarefas por período (manhã, tarde, noite), mural de rotina semanal recorrente e notificações locais.
 
 ## Stack
 
 - **Expo SDK 54** + React Native
-- **expo-sqlite** — tarefas e preferências
+- **expo-sqlite** — tarefas, rotinas recorrentes e preferências
 - **expo-notifications** — lembretes de tarefas (APK / development build)
+- **react-native-view-shot + expo-sharing** — exportar e compartilhar o mural de rotina como imagem
 
 ## Desenvolvimento
 
@@ -51,11 +52,13 @@ O banco local (`agenda.db`) passa a ser criptografado com chave no SecureStore. 
 
 ```
 src/
-  app/               # rotas (Expo Router)
-  database/          # SQLite (tarefas e settings)
-  storage/           # cache em memória das preferências
+  app/                 # rotas (Expo Router), abas Agenda / Mural
+  database/            # SQLite (tarefas, rotinas recorrentes e settings)
+  storage/             # cache em memória das preferências
   services/
-    google-calendar/ # OAuth + sync com Google Agenda
-    notifications/   # agendamento de lembretes
-  features/agenda/   # UI da agenda
+    google-calendar/   # OAuth + sync com Google Agenda
+    notifications/     # agendamento de lembretes
+  features/
+    agenda/            # UI da agenda diária
+    recurring/         # UI do mural de rotina semanal + exportação como imagem
 ```

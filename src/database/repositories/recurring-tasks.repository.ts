@@ -13,6 +13,8 @@ type RecurringTaskRow = {
   time: string;
   weekdays: string;
   active: number;
+  notify: number;
+  notification_ids: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -28,6 +30,10 @@ function mapRow(row: RecurringTaskRow): RecurringTask {
       .filter((value) => value.length > 0)
       .map((value) => Number(value) as Weekday),
     active: row.active === 1,
+    notify: row.notify === 1,
+    notificationIds: row.notification_ids
+      ? row.notification_ids.split(",").filter((value) => value.length > 0)
+      : [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -58,14 +64,15 @@ export async function createRecurringTask(
 
   await db.runAsync(
     `INSERT INTO recurring_tasks (
-      id, title, description, time, weekdays, active, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+      id, title, description, time, weekdays, active, notify, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`,
     [
       id,
       input.title.trim(),
       input.description?.trim() ?? null,
       input.time,
       input.weekdays.join(","),
+      input.notify ? 1 : 0,
       now,
       now,
     ]
@@ -106,6 +113,7 @@ export async function updateRecurringTask(
       time = ?,
       weekdays = ?,
       active = ?,
+      notify = ?,
       updated_at = ?
     WHERE id = ?`,
     [
@@ -116,6 +124,7 @@ export async function updateRecurringTask(
       input.time ?? current.time,
       input.weekdays ? input.weekdays.join(",") : current.weekdays,
       input.active !== undefined ? (input.active ? 1 : 0) : current.active,
+      input.notify !== undefined ? (input.notify ? 1 : 0) : current.notify,
       updatedAt,
       id,
     ]
@@ -136,4 +145,15 @@ export async function updateRecurringTask(
 export async function deleteRecurringTask(id: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync("DELETE FROM recurring_tasks WHERE id = ?", [id]);
+}
+
+export async function setRecurringTaskNotificationIds(
+  id: string,
+  notificationIds: string[]
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    "UPDATE recurring_tasks SET notification_ids = ? WHERE id = ?",
+    [notificationIds.length > 0 ? notificationIds.join(",") : null, id]
+  );
 }

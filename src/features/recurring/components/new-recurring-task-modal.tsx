@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Clock, Trash2, X } from "lucide-react-native";
+import { Bell, Clock, Trash2, X } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -29,6 +29,8 @@ import { useTheme } from "@/context/theme.context";
 import { WeekdayToggleGroup } from "@/features/recurring/components/weekday-toggle-group";
 import { newRecurringTaskSchema } from "@/features/recurring/schemas/new-recurring-task.schema";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
+import { requestNotificationPermissions } from "@/services/notifications/task-notifications.service";
+import { settingsStorage } from "@/storage/settings.storage";
 import type {
   CreateRecurringTaskInput,
   RecurringTask,
@@ -44,6 +46,7 @@ type FormValues = {
   title: string;
   time: string;
   weekdays: number[];
+  notify: boolean;
 };
 
 type NewRecurringTaskModalProps = {
@@ -57,13 +60,19 @@ type NewRecurringTaskModalProps = {
 
 function defaultValues(recurringTask: RecurringTask | null): FormValues {
   if (!recurringTask) {
-    return { title: "", time: "", weekdays: [] };
+    return {
+      title: "",
+      time: "",
+      weekdays: [],
+      notify: settingsStorage.getNotificationsEnabled(),
+    };
   }
 
   return {
     title: recurringTask.title,
     time: recurringTask.time,
     weekdays: recurringTask.weekdays,
+    notify: recurringTask.notify,
   };
 }
 
@@ -167,20 +176,26 @@ export function NewRecurringTaskModal({
 
     try {
       const time = normalizeTimeInput(values.time);
-
       const weekdays = values.weekdays as Weekday[];
+
+      let notify = values.notify;
+      if (notify) {
+        notify = await requestNotificationPermissions();
+      }
 
       if (isEditing) {
         await onUpdate(recurringTask.id, {
           title: values.title,
           time,
           weekdays,
+          notify,
         });
       } else {
         await onSubmit({
           title: values.title,
           time,
           weekdays,
+          notify,
         });
       }
 
@@ -306,6 +321,32 @@ export function NewRecurringTaskModal({
               {errors.weekdays ? (
                 <Text style={styles.errorText}>{errors.weekdays.message}</Text>
               ) : null}
+            </View>
+
+            <View style={styles.notifyRow}>
+              <View style={styles.notifyContent}>
+                <View style={styles.notifyIcon}>
+                  <Bell size={18} color={colors.text} />
+                </View>
+                <View style={styles.notifyText}>
+                  <Text style={styles.notifyTitle}>Notificar</Text>
+                  <Text style={styles.notifySubtitle}>
+                    Receber lembrete nos dias e horário da rotina
+                  </Text>
+                </View>
+              </View>
+              <Controller
+                control={control}
+                name="notify"
+                render={({ field: { onChange, value } }) => (
+                  <Switch
+                    value={value}
+                    onValueChange={onChange}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor={colors.onPrimary}
+                  />
+                )}
+              />
             </View>
 
             {isEditing ? (
@@ -464,10 +505,32 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       paddingVertical: 14,
       backgroundColor: colors.card,
     },
+    notifyContent: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    notifyIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.backgroundElement,
+    },
+    notifyText: {
+      flex: 1,
+      gap: 2,
+    },
     notifyTitle: {
       fontSize: 15,
       fontWeight: "700",
       color: colors.text,
+    },
+    notifySubtitle: {
+      fontSize: 13,
+      color: colors.textSecondary,
     },
     submitButton: {
       borderRadius: 16,
