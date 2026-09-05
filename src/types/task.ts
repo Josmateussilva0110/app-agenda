@@ -29,7 +29,6 @@ export type Task = {
   googleCalendarSync: boolean;
   googleReminderMinutes: number | null;
   googleSyncHash: string | null;
-  recurringTaskId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,7 +42,6 @@ export type CreateTaskInput = {
   googleEventId?: string | null;
   googleCalendarSync?: boolean;
   googleReminderMinutes?: number | null;
-  recurringTaskId?: string | null;
 };
 
 export type UpdateTaskInput = Partial<

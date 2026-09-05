@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-n
 
 import { useTheme } from "@/context/theme.context";
 import { RecurringTaskCard } from "@/features/recurring/components/recurring-task-card";
+import { buildRecurringMatrix } from "@/features/recurring/utils/build-recurring-matrix";
 import {
   WEEKDAY_DISPLAY_ORDER,
   WEEKDAY_SHORT_LABELS,
@@ -42,25 +43,10 @@ export function RecurringMatrix({ recurringTasks, onPressTask }: RecurringMatrix
   const styles = useMemo(() => createStyles(colors, metrics), [colors, metrics]);
   const todayWeekday = new Date().getDay() as Weekday;
 
-  const times = useMemo(() => {
-    const unique = new Set(recurringTasks.map((task) => task.time));
-    return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [recurringTasks]);
-
-  const cellsByDayAndTime = useMemo(() => {
-    const map = new Map<string, RecurringTask[]>();
-
-    for (const task of recurringTasks) {
-      for (const day of task.weekdays) {
-        const key = `${day}-${task.time}`;
-        const list = map.get(key) ?? [];
-        list.push(task);
-        map.set(key, list);
-      }
-    }
-
-    return map;
-  }, [recurringTasks]);
+  const { times, cellsByDayAndTime } = useMemo(
+    () => buildRecurringMatrix(recurringTasks),
+    [recurringTasks]
+  );
 
   if (times.length === 0) {
     return (

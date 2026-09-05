@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ensureRecurringTasksForDate } from "@/database/repositories/recurring-tasks.repository";
 import {
   createTask,
   deleteTask,
@@ -25,11 +24,6 @@ export function useTasks(date: string) {
     setError(null);
 
     try {
-      const generated = await ensureRecurringTasksForDate(date);
-      for (const task of generated) {
-        await scheduleTaskNotification(task);
-      }
-
       const result = await listTasksByDate(date);
       setTasks(result);
     } catch (err) {

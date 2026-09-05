@@ -6,20 +6,11 @@ import {
   listRecurringTasks,
   updateRecurringTask,
 } from "@/database/repositories/recurring-tasks.repository";
-import {
-  deleteTask,
-  listTasksByRecurringTaskId,
-} from "@/database/repositories/tasks.repository";
-import { googleCalendarService } from "@/services/google-calendar";
-import { cancelTaskNotification } from "@/services/notifications/task-notifications.service";
 import type {
   CreateRecurringTaskInput,
   RecurringTask,
   UpdateRecurringTaskInput,
 } from "@/types/recurring-task";
-import { runConcurrent } from "@/utils/concurrency";
-
-const RECURRING_DELETE_CONCURRENCY = 8;
 
 export function useRecurringTasks() {
   const [recurringTasks, setRecurringTasks] = useState<RecurringTask[]>([]);
@@ -64,20 +55,6 @@ export function useRecurringTasks() {
 
   const removeRecurringTask = useCallback(
     async (id: string) => {
-      const linkedTasks = await listTasksByRecurringTaskId(id);
-
-      await runConcurrent(linkedTasks, RECURRING_DELETE_CONCURRENCY, async (task) => {
-        if (task.notificationId) {
-          await cancelTaskNotification(task.notificationId);
-        }
-
-        if (task.googleEventId) {
-          await googleCalendarService.deleteLinkedEvent(task.googleEventId);
-        }
-
-        await deleteTask(task.id);
-      });
-
       await deleteRecurringTask(id);
       await refresh();
     },

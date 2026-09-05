@@ -361,7 +361,7 @@ export function NewRecurringTaskModal({
       <ConfirmDialog
         visible={confirmDeleteVisible}
         title="Remover rotina"
-        message={`Deseja remover "${recurringTask?.title}"? As tarefas já geradas na agenda também serão removidas.`}
+        message={`Deseja remover "${recurringTask?.title}" do mural? Essa ação não pode ser desfeita.`}
         confirmLabel="Remover"
         cancelLabel="Cancelar"
         destructive

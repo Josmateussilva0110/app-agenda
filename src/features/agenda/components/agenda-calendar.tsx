@@ -15,13 +15,11 @@ import {
 type AgendaCalendarProps = {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
-  markedDates?: string[];
 };
 
 export function AgendaCalendar({
   selectedDate,
   onSelectDate,
-  markedDates = [],
 }: AgendaCalendarProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -37,7 +35,6 @@ export function AgendaCalendar({
 
   const month = visibleMonth;
   const days = useMemo(() => getCalendarDays(month), [month]);
-  const markedSet = useMemo(() => new Set(markedDates), [markedDates]);
 
   const goToPreviousMonth = () => {
     setVisibleMonth(addMonths(month, -1));
@@ -78,7 +75,6 @@ export function AgendaCalendar({
           const selected = isSameDay(day, selectedDate);
           const today = isToday(day);
           const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-          const hasTasks = markedSet.has(dateKey);
 
           return (
             <Pressable
@@ -102,7 +98,6 @@ export function AgendaCalendar({
                   {day.getDate()}
                 </Text>
               </View>
-              {hasTasks ? <View style={styles.dot} /> : null}
             </Pressable>
           );
         })}
@@ -188,12 +183,5 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     },
     dayTextSelected: {
       color: colors.calendarSelectedText,
-    },
-    dot: {
-      width: 4,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.primary,
-      marginTop: 2,
     },
   });

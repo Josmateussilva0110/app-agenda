@@ -1,4 +1,4 @@
-import { Calendar, Repeat } from "lucide-react-native";
+import { Calendar, LayoutGrid } from "lucide-react-native";
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -41,8 +41,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="rotina"
         options={{
-          title: "Rotina",
-          tabBarIcon: ({ color, size }) => <Repeat color={color} size={size} />,
+          title: "Mural",
+          tabBarIcon: ({ color, size }) => <LayoutGrid color={color} size={size} />,
         }}
       />
     </Tabs>

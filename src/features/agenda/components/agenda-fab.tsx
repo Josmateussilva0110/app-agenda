@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Plus } from "lucide-react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { premiumFabShadow } from "@/constants/elevation";
 import { useTheme } from "@/context/theme.context";
@@ -11,12 +10,11 @@ type AgendaFabProps = {
   bottomOffset?: number;
 };
 
-export function AgendaFab({ onPress, bottomOffset = 16 }: AgendaFabProps) {
+export function AgendaFab({ onPress, bottomOffset = 12 }: AgendaFabProps) {
   const { colors, isDark } = useTheme();
-  const insets = useSafeAreaInsets();
   const styles = useMemo(
-    () => createStyles(colors, Math.max(insets.bottom, 12), bottomOffset),
-    [bottomOffset, colors, insets.bottom]
+    () => createStyles(colors, bottomOffset),
+    [bottomOffset, colors]
   );
 
   return (
@@ -33,14 +31,13 @@ export function AgendaFab({ onPress, bottomOffset = 16 }: AgendaFabProps) {
 
 const createStyles = (
   colors: ReturnType<typeof useTheme>["colors"],
-  bottomInset: number,
   bottomOffset: number
 ) =>
   StyleSheet.create({
     wrap: {
       position: "absolute",
       right: 20,
-      bottom: bottomOffset + bottomInset,
+      bottom: bottomOffset,
     },
     button: {
       width: 64,

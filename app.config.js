@@ -27,6 +27,14 @@ module.exports = {
         iosUrlScheme: googleSignInIosUrlScheme,
       },
     ],
+    [
+      "expo-navigation-bar",
+      {
+        backgroundColor: "#FFFFFF",
+        barStyle: "dark-content",
+      },
+    ],
+    "./plugins/with-navigation-bar-contrast",
   ],
   android: {
     ...appJson.expo.android,

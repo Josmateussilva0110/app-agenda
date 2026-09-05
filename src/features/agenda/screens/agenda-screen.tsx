@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -7,7 +7,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AgendaCalendar } from "@/features/agenda/components/agenda-calendar";
@@ -22,7 +21,6 @@ import { useGoogleCalendar } from "@/hooks/use-google-calendar";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { useTasks } from "@/hooks/use-tasks";
 import { useTheme } from "@/context/theme.context";
-import { listDatesWithTasks } from "@/database/repositories/tasks.repository";
 import { TASK_PERIODS, type TaskPeriod } from "@/types/task";
 import { formatDayMonth, isToday } from "@/utils/date";
 
@@ -44,35 +42,15 @@ export function AgendaScreen() {
     disconnect: disconnectGoogle,
     sync: syncGoogle,
   } = useGoogleCalendar();
-  const [markedDates, setMarkedDates] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [, setBannerTick] = useState(0);
 
-  const loadMarkedDates = useCallback(async () => {
-    const dates = await listDatesWithTasks(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth() + 1
-    );
-    setMarkedDates(dates);
-  }, [selectedDate]);
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refresh(), loadMarkedDates()]);
+    await refresh();
     setRefreshing(false);
-  }, [loadMarkedDates, refresh]);
-
-  useEffect(() => {
-    void loadMarkedDates();
-  }, [loadMarkedDates]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void refresh();
-      void loadMarkedDates();
-    }, [loadMarkedDates, refresh])
-  );
+  }, [refresh]);
 
   const tasksByPeriod = useMemo(() => {
     const grouped: Record<TaskPeriod, typeof tasks> = {
@@ -90,12 +68,10 @@ export function AgendaScreen() {
 
   const handleCreateTask = async (input: Parameters<typeof addTask>[0]) => {
     await addTask(input);
-    await loadMarkedDates();
   };
 
   const handleRemoveTask = async (taskId: string) => {
     await removeTask(taskId);
-    await loadMarkedDates();
   };
 
   const handleToggleComplete = async (taskId: string) => {
@@ -104,7 +80,7 @@ export function AgendaScreen() {
 
   const handleGoogleSync = async () => {
     await syncGoogle(selectedDateKey);
-    await Promise.all([refresh(), loadMarkedDates()]);
+    await refresh();
   };
 
   const googleLastMessage = googleLastResult
@@ -126,7 +102,7 @@ export function AgendaScreen() {
   const emptyDay = tasks.length === 0;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -166,7 +142,6 @@ export function AgendaScreen() {
           <AgendaCalendar
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
-            markedDates={markedDates}
           />
         </View>
 

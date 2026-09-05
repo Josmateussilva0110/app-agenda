@@ -4,7 +4,6 @@ import {
   TASK_TITLE_MAX_LENGTH,
   truncateText,
 } from "@/constants/validation";
-import { getMonthDateRange } from "@/utils/date";
 import type {
   CreateTaskInput,
   Task,
@@ -25,7 +24,6 @@ type TaskRow = {
   google_calendar_sync: number;
   google_reminder_minutes: number | null;
   google_sync_hash: string | null;
-  recurring_task_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -44,7 +42,6 @@ function mapRow(row: TaskRow): Task {
     googleCalendarSync: row.google_calendar_sync === 1,
     googleReminderMinutes: row.google_reminder_minutes,
     googleSyncHash: row.google_sync_hash,
-    recurringTaskId: row.recurring_task_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -105,8 +102,8 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
       id, title, description, date, period, status,
       notify_at, notification_id, google_event_id,
       google_calendar_sync, google_reminder_minutes, google_sync_hash,
-      recurring_task_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?, ?, NULL, ?, ?, ?)`,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?, ?, NULL, ?, ?)`,
     [
       id,
       normalized.title.trim(),
@@ -117,7 +114,6 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
       normalized.googleEventId ?? null,
       normalized.googleCalendarSync ? 1 : 0,
       normalized.googleReminderMinutes ?? null,
-      normalized.recurringTaskId ?? null,
       now,
       now,
     ]
@@ -280,31 +276,6 @@ export async function getTaskByGoogleEventId(
   return row ? mapRow(row) : null;
 }
 
-export async function getTaskByRecurringAndDate(
-  recurringTaskId: string,
-  date: string
-): Promise<Task | null> {
-  const db = await getDatabase();
-  const row = await db.getFirstAsync<TaskRow>(
-    "SELECT * FROM tasks WHERE recurring_task_id = ? AND date = ?",
-    [recurringTaskId, date]
-  );
-
-  return row ? mapRow(row) : null;
-}
-
-export async function listTasksByRecurringTaskId(
-  recurringTaskId: string
-): Promise<Task[]> {
-  const db = await getDatabase();
-  const rows = await db.getAllAsync<TaskRow>(
-    "SELECT * FROM tasks WHERE recurring_task_id = ?",
-    [recurringTaskId]
-  );
-
-  return rows.map(mapRow);
-}
-
 export async function listExistingGoogleEventIds(
   googleEventIds: string[]
 ): Promise<Set<string>> {
@@ -342,20 +313,4 @@ export async function listTasksInDateRange(
   );
 
   return rows.map(mapRow);
-}
-
-export async function listDatesWithTasks(
-  year: number,
-  month: number
-): Promise<string[]> {
-  const db = await getDatabase();
-  const { start, end } = getMonthDateRange(year, month);
-  const rows = await db.getAllAsync<{ date: string }>(
-    `SELECT DISTINCT date FROM tasks
-     WHERE date >= ? AND date <= ?
-     ORDER BY date ASC`,
-    [start, end]
-  );
-
-  return rows.map((row) => row.date);
 }

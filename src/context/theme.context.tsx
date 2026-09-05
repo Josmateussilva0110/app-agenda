@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   createContext,
   useCallback,
@@ -6,7 +6,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { StatusBar } from "react-native";
+import { Platform, StatusBar } from "react-native";
+import * as NavigationBar from "expo-navigation-bar";
 
 import { Colors } from "@/constants/theme";
 import { settingsStorage } from "@/storage/settings.storage";
@@ -45,6 +46,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [mode, setTheme]);
 
   const colors = Colors[mode];
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+
+    void NavigationBar.setBackgroundColorAsync(colors.card);
+    void NavigationBar.setButtonStyleAsync(mode === "dark" ? "light" : "dark");
+  }, [colors.card, mode]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({

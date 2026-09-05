@@ -1,18 +1,10 @@
 import { getDatabase } from "@/database/client";
-import {
-  createTask,
-  getTaskByRecurringAndDate,
-} from "@/database/repositories/tasks.repository";
-import { settingsStorage } from "@/storage/settings.storage";
-import { parseDateKey } from "@/utils/date";
-import { parseTime, periodFromHour } from "@/utils/task-time";
 import type {
   CreateRecurringTaskInput,
   RecurringTask,
   UpdateRecurringTaskInput,
   Weekday,
 } from "@/types/recurring-task";
-import type { Task } from "@/types/task";
 
 type RecurringTaskRow = {
   id: string;
@@ -144,39 +136,4 @@ export async function updateRecurringTask(
 export async function deleteRecurringTask(id: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync("DELETE FROM recurring_tasks WHERE id = ?", [id]);
-}
-
-export async function ensureRecurringTasksForDate(
-  dateKey: string
-): Promise<Task[]> {
-  const weekday = parseDateKey(dateKey).getDay() as Weekday;
-  const all = await listRecurringTasks();
-  const dueToday = all.filter(
-    (recurring) => recurring.active && recurring.weekdays.includes(weekday)
-  );
-
-  const created: Task[] = [];
-
-  for (const recurring of dueToday) {
-    const existing = await getTaskByRecurringAndDate(recurring.id, dateKey);
-    if (existing) continue;
-
-    const { hour } = parseTime(recurring.time);
-    const notifyAt = settingsStorage.getNotificationsEnabled()
-      ? recurring.time
-      : null;
-
-    const task = await createTask({
-      title: recurring.title,
-      description: recurring.description,
-      date: dateKey,
-      period: periodFromHour(hour),
-      notifyAt,
-      recurringTaskId: recurring.id,
-    });
-
-    created.push(task);
-  }
-
-  return created;
 }

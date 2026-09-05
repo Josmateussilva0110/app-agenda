@@ -102,16 +102,6 @@ export function getWeekRange(dateKey: string): { start: string; end: string } {
   };
 }
 
-export function getMonthDateRange(
-  year: number,
-  month: number
-): { start: string; end: string } {
-  const start = formatDateKey(new Date(year, month - 1, 1));
-  const end = formatDateKey(new Date(year, month, 0));
-
-  return { start, end };
-}
-
 export function toDayStartIso(dateKey: string): string {
   const date = parseDateKey(dateKey);
   date.setHours(0, 0, 0, 0);
