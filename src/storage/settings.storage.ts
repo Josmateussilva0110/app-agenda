@@ -9,6 +9,8 @@ const KEYS = {
   notificationsPromptDismissed: "settings.notifications.promptDismissed",
   selectedDate: "agenda.selectedDate",
   googleCalendarConnected: "integrations.googleCalendar.connected",
+  googleCalendarSyncEnabled: "integrations.googleCalendar.syncEnabled",
+  googleCalendarReminderMinutes: "integrations.googleCalendar.reminderMinutes",
   theme: "settings.theme",
 } as const;
 
@@ -76,6 +78,23 @@ export const settingsStorage = {
 
   async setGoogleCalendarConnected(connected: boolean): Promise<void> {
     await writeBoolean(KEYS.googleCalendarConnected, connected);
+  },
+
+  getGoogleCalendarSyncEnabled(): boolean {
+    return getCachedBoolean(KEYS.googleCalendarSyncEnabled, true);
+  },
+
+  async setGoogleCalendarSyncEnabled(enabled: boolean): Promise<void> {
+    await writeBoolean(KEYS.googleCalendarSyncEnabled, enabled);
+  },
+
+  getGoogleCalendarReminderMinutes(): number {
+    const value = Number(getCachedString(KEYS.googleCalendarReminderMinutes, "10"));
+    return Number.isFinite(value) ? value : 10;
+  },
+
+  async setGoogleCalendarReminderMinutes(minutes: number): Promise<void> {
+    await writeString(KEYS.googleCalendarReminderMinutes, String(minutes));
   },
 
   getTheme(): "light" | "dark" | null {

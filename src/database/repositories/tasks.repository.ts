@@ -1,4 +1,10 @@
 import { getDatabase } from "@/database/client";
+import {
+  TASK_DESCRIPTION_MAX_LENGTH,
+  TASK_TITLE_MAX_LENGTH,
+  truncateText,
+} from "@/constants/validation";
+import { getMonthDateRange } from "@/utils/date";
 import type {
   CreateTaskInput,
   Task,
@@ -16,6 +22,10 @@ type TaskRow = {
   notify_at: string | null;
   notification_id: string | null;
   google_event_id: string | null;
+  google_calendar_sync: number;
+  google_reminder_minutes: number | null;
+  google_sync_hash: string | null;
+  recurring_task_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -31,6 +41,10 @@ function mapRow(row: TaskRow): Task {
     notifyAt: row.notify_at,
     notificationId: row.notification_id,
     googleEventId: row.google_event_id,
+    googleCalendarSync: row.google_calendar_sync === 1,
+    googleReminderMinutes: row.google_reminder_minutes,
+    googleSyncHash: row.google_sync_hash,
+    recurringTaskId: row.recurring_task_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -45,6 +59,19 @@ function toDateString(date: Date): string {
 
 export function formatDateKey(date: Date): string {
   return toDateString(date);
+}
+
+function normalizeCreateInput(input: CreateTaskInput): CreateTaskInput {
+  return {
+    ...input,
+    title: truncateText(input.title, TASK_TITLE_MAX_LENGTH),
+    description:
+      input.description === undefined
+        ? undefined
+        : input.description === null
+          ? null
+          : truncateText(input.description, TASK_DESCRIPTION_MAX_LENGTH),
+  };
 }
 
 export async function listTasksByDate(date: string): Promise<Task[]> {
@@ -69,22 +96,28 @@ function createId(): string {
 
 export async function createTask(input: CreateTaskInput): Promise<Task> {
   const db = await getDatabase();
+  const normalized = normalizeCreateInput(input);
   const now = new Date().toISOString();
   const id = createId();
 
   await db.runAsync(
     `INSERT INTO tasks (
       id, title, description, date, period, status,
-      notify_at, notification_id, google_event_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?, ?)`,
+      notify_at, notification_id, google_event_id,
+      google_calendar_sync, google_reminder_minutes, google_sync_hash,
+      recurring_task_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?, ?, NULL, ?, ?, ?)`,
     [
       id,
-      input.title.trim(),
-      input.description?.trim() ?? null,
-      input.date,
-      input.period,
-      input.notifyAt ?? null,
-      input.googleEventId ?? null,
+      normalized.title.trim(),
+      normalized.description?.trim() ?? null,
+      normalized.date,
+      normalized.period,
+      normalized.notifyAt ?? null,
+      normalized.googleEventId ?? null,
+      normalized.googleCalendarSync ? 1 : 0,
+      normalized.googleReminderMinutes ?? null,
+      normalized.recurringTaskId ?? null,
       now,
       now,
     ]
@@ -117,6 +150,16 @@ export async function updateTask(
   }
 
   const updatedAt = new Date().toISOString();
+  const nextTitle =
+    input.title !== undefined
+      ? truncateText(input.title, TASK_TITLE_MAX_LENGTH)
+      : current.title;
+  const nextDescription =
+    input.description !== undefined
+      ? input.description === null
+        ? null
+        : truncateText(input.description, TASK_DESCRIPTION_MAX_LENGTH)
+      : current.description;
 
   await db.runAsync(
     `UPDATE tasks SET
@@ -126,17 +169,38 @@ export async function updateTask(
       period = ?,
       status = ?,
       notify_at = ?,
+      google_calendar_sync = ?,
+      google_reminder_minutes = ?,
+      google_sync_hash = CASE
+        WHEN ? = 1 THEN NULL
+        ELSE google_sync_hash
+      END,
       updated_at = ?
     WHERE id = ?`,
     [
-      input.title ?? current.title,
-      input.description !== undefined
-        ? input.description
-        : current.description,
+      nextTitle,
+      nextDescription,
       input.date ?? current.date,
       input.period ?? current.period,
       input.status ?? current.status,
       input.notifyAt !== undefined ? input.notifyAt : current.notify_at,
+      input.googleCalendarSync !== undefined
+        ? input.googleCalendarSync
+          ? 1
+          : 0
+        : current.google_calendar_sync,
+      input.googleReminderMinutes !== undefined
+        ? input.googleReminderMinutes
+        : current.google_reminder_minutes,
+      input.title !== undefined ||
+      input.description !== undefined ||
+      input.date !== undefined ||
+      input.period !== undefined ||
+      input.notifyAt !== undefined ||
+      input.googleCalendarSync !== undefined ||
+      input.googleReminderMinutes !== undefined
+        ? 1
+        : 0,
       updatedAt,
       id,
     ]
@@ -164,10 +228,10 @@ export async function setTaskNotificationId(
   notificationId: string | null
 ): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync(
-    "UPDATE tasks SET notification_id = ?, updated_at = ? WHERE id = ?",
-    [notificationId, new Date().toISOString(), id]
-  );
+  await db.runAsync("UPDATE tasks SET notification_id = ? WHERE id = ?", [
+    notificationId,
+    id,
+  ]);
 }
 
 export async function setTaskGoogleEventId(
@@ -175,9 +239,32 @@ export async function setTaskGoogleEventId(
   googleEventId: string | null
 ): Promise<void> {
   const db = await getDatabase();
+  await db.runAsync("UPDATE tasks SET google_event_id = ? WHERE id = ?", [
+    googleEventId,
+    id,
+  ]);
+}
+
+export async function setTaskGoogleSyncHash(
+  id: string,
+  googleSyncHash: string | null
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync("UPDATE tasks SET google_sync_hash = ? WHERE id = ?", [
+    googleSyncHash,
+    id,
+  ]);
+}
+
+export async function setTaskGoogleSyncState(
+  id: string,
+  googleEventId: string | null,
+  googleSyncHash: string | null
+): Promise<void> {
+  const db = await getDatabase();
   await db.runAsync(
-    "UPDATE tasks SET google_event_id = ?, updated_at = ? WHERE id = ?",
-    [googleEventId, new Date().toISOString(), id]
+    `UPDATE tasks SET google_event_id = ?, google_sync_hash = ? WHERE id = ?`,
+    [googleEventId, googleSyncHash, id]
   );
 }
 
@@ -191,6 +278,49 @@ export async function getTaskByGoogleEventId(
   );
 
   return row ? mapRow(row) : null;
+}
+
+export async function getTaskByRecurringAndDate(
+  recurringTaskId: string,
+  date: string
+): Promise<Task | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<TaskRow>(
+    "SELECT * FROM tasks WHERE recurring_task_id = ? AND date = ?",
+    [recurringTaskId, date]
+  );
+
+  return row ? mapRow(row) : null;
+}
+
+export async function listTasksByRecurringTaskId(
+  recurringTaskId: string
+): Promise<Task[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<TaskRow>(
+    "SELECT * FROM tasks WHERE recurring_task_id = ?",
+    [recurringTaskId]
+  );
+
+  return rows.map(mapRow);
+}
+
+export async function listExistingGoogleEventIds(
+  googleEventIds: string[]
+): Promise<Set<string>> {
+  if (googleEventIds.length === 0) {
+    return new Set();
+  }
+
+  const db = await getDatabase();
+  const placeholders = googleEventIds.map(() => "?").join(", ");
+  const rows = await db.getAllAsync<{ google_event_id: string }>(
+    `SELECT google_event_id FROM tasks
+     WHERE google_event_id IN (${placeholders})`,
+    googleEventIds
+  );
+
+  return new Set(rows.map((row) => row.google_event_id));
 }
 
 export async function listTasksInDateRange(
@@ -219,10 +349,12 @@ export async function listDatesWithTasks(
   month: number
 ): Promise<string[]> {
   const db = await getDatabase();
-  const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+  const { start, end } = getMonthDateRange(year, month);
   const rows = await db.getAllAsync<{ date: string }>(
-    "SELECT DISTINCT date FROM tasks WHERE date LIKE ? ORDER BY date ASC",
-    [`${monthPrefix}%`]
+    `SELECT DISTINCT date FROM tasks
+     WHERE date >= ? AND date <= ?
+     ORDER BY date ASC`,
+    [start, end]
   );
 
   return rows.map((row) => row.date);

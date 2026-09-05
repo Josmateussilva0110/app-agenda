@@ -2,6 +2,7 @@ import type {
   GoogleCalendarEvent,
   GoogleCalendarEventsResponse,
 } from "@/services/google-calendar/types";
+import { GoogleCalendarApiError } from "@/services/google-calendar/api-errors";
 
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 
@@ -21,9 +22,7 @@ async function calendarRequest<T>(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(
-      body || "Não foi possível comunicar com o Google Agenda."
-    );
+    throw new GoogleCalendarApiError(response.status, body);
   }
 
   if (response.status === 204) {
@@ -38,20 +37,32 @@ export async function listPrimaryCalendarEvents(
   timeMin: string,
   timeMax: string
 ): Promise<GoogleCalendarEvent[]> {
-  const params = new URLSearchParams({
-    timeMin,
-    timeMax,
-    singleEvents: "true",
-    orderBy: "startTime",
-    maxResults: "100",
-  });
+  const events: GoogleCalendarEvent[] = [];
+  let pageToken: string | undefined;
 
-  const data = await calendarRequest<GoogleCalendarEventsResponse>(
-    `/calendars/primary/events?${params.toString()}`,
-    accessToken
-  );
+  do {
+    const params = new URLSearchParams({
+      timeMin,
+      timeMax,
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "100",
+    });
 
-  return data.items ?? [];
+    if (pageToken) {
+      params.set("pageToken", pageToken);
+    }
+
+    const data = await calendarRequest<GoogleCalendarEventsResponse>(
+      `/calendars/primary/events?${params.toString()}`,
+      accessToken
+    );
+
+    events.push(...(data.items ?? []));
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  return events;
 }
 
 export async function createPrimaryCalendarEvent(
@@ -103,8 +114,6 @@ export async function deletePrimaryCalendarEvent(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(
-      body || "Não foi possível excluir o evento no Google Agenda."
-    );
+    throw new GoogleCalendarApiError(response.status, body);
   }
 }

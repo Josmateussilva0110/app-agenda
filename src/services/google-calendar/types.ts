@@ -15,6 +15,7 @@ export type GoogleCalendarEvent = {
 
 export type GoogleCalendarEventsResponse = {
   items?: GoogleCalendarEvent[];
+  nextPageToken?: string;
 };
 
 export type GoogleCalendarSyncResult = {

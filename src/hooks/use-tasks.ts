@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { ensureRecurringTasksForDate } from "@/database/repositories/recurring-tasks.repository";
 import {
   createTask,
   deleteTask,
@@ -24,6 +25,11 @@ export function useTasks(date: string) {
     setError(null);
 
     try {
+      const generated = await ensureRecurringTasksForDate(date);
+      for (const task of generated) {
+        await scheduleTaskNotification(task);
+      }
+
       const result = await listTasksByDate(date);
       setTasks(result);
     } catch (err) {
@@ -42,6 +48,7 @@ export function useTasks(date: string) {
       const created = await createTask(input);
       await scheduleTaskNotification(created);
       await refresh();
+      googleCalendarService.syncTaskInBackground(created, refresh);
       return created;
     },
     [refresh]
@@ -57,6 +64,7 @@ export function useTasks(date: string) {
       const updated = await updateTask(id, input);
       await scheduleTaskNotification(updated);
       await refresh();
+      googleCalendarService.syncTaskInBackground(updated, refresh);
       return updated;
     },
     [refresh, tasks]
@@ -98,6 +106,7 @@ export function useTasks(date: string) {
       }
 
       await refresh();
+      googleCalendarService.syncTaskInBackground(updated, refresh);
     },
     [refresh, tasks]
   );

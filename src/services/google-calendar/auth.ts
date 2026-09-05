@@ -13,6 +13,7 @@ import {
 import type { GoogleAccountProfile } from "@/services/google-calendar/types";
 
 const TOKEN_STORAGE_KEY = "google_calendar_tokens";
+const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 
 type StoredTokens = {
   accessToken: string;
@@ -35,6 +36,10 @@ function configureGoogleSignIn() {
   configured = true;
 }
 
+function isTokenExpired(expiresAt: number): boolean {
+  return Date.now() >= expiresAt - TOKEN_EXPIRY_BUFFER_MS;
+}
+
 async function readStoredTokens(): Promise<StoredTokens | null> {
   const raw = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
   if (!raw) return null;
@@ -53,6 +58,22 @@ async function writeStoredTokens(tokens: StoredTokens | null): Promise<void> {
   }
 
   await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, JSON.stringify(tokens));
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!GoogleSignin.hasPreviousSignIn()) {
+    return null;
+  }
+
+  await GoogleSignin.signInSilently();
+  const tokens = await GoogleSignin.getTokens();
+
+  await writeStoredTokens({
+    accessToken: tokens.accessToken,
+    expiresAt: Date.now() + 55 * 60 * 1000,
+  });
+
+  return tokens.accessToken;
 }
 
 function getSignInErrorMessage(error: unknown): string {
@@ -109,23 +130,19 @@ export async function connectGoogleAccount(): Promise<void> {
 export async function getGoogleAccessToken(): Promise<string | null> {
   configureGoogleSignIn();
 
+  const cached = await readStoredTokens();
+  if (cached && !isTokenExpired(cached.expiresAt)) {
+    return cached.accessToken;
+  }
+
   try {
-    if (GoogleSignin.hasPreviousSignIn()) {
-      await GoogleSignin.signInSilently();
-    } else {
-      return null;
+    return await refreshAccessToken();
+  } catch {
+    if (cached && !isTokenExpired(cached.expiresAt)) {
+      return cached.accessToken;
     }
 
-    const tokens = await GoogleSignin.getTokens();
-    await writeStoredTokens({
-      accessToken: tokens.accessToken,
-      expiresAt: Date.now() + 55 * 60 * 1000,
-    });
-
-    return tokens.accessToken;
-  } catch {
-    const cached = await readStoredTokens();
-    return cached?.accessToken ?? null;
+    return null;
   }
 }
 

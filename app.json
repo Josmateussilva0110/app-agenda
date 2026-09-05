@@ -2,16 +2,22 @@
   "expo": {
     "name": "Minha Agenda",
     "slug": "minha-agenda",
-    "version": "1.0.11",
+    "version": "1.0.19",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "minhaagenda",
     "userInterfaceStyle": "light",
     "android": {
       "usesCleartextTraffic": false,
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -55,8 +61,8 @@
       [
         "expo-sqlite",
         {
-          "enableFTS": true,
-          "useSQLCipher": false
+          "enableFTS": false,
+          "useSQLCipher": true
         }
       ],
       [
@@ -65,12 +71,17 @@
           "android": {
             "newArchEnabled": true,
             "usesCleartextTraffic": false,
-            "enableMinifyInReleaseBuilds": false,
-            "enableShrinkResourcesInReleaseBuilds": false,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
             "enableBundleCompression": false,
             "buildArchs": [
               "arm64-v8a"
             ],
+            "packagingOptions": {
+              "pickFirst": [
+                "**/libcrypto.so"
+              ]
+            },
             "extraProguardRules": "-keep class com.swmansion.reanimated.** { *; }\n-keep class com.swmansion.worklets.** { *; }\n-keep class com.facebook.react.turbomodule.** { *; }\n-keep class com.facebook.jni.** { *; }\n-keep class com.facebook.react.** { *; }\n-keep class expo.modules.** { *; }"
           }
         }

@@ -26,6 +26,10 @@ export type Task = {
   notifyAt: string | null;
   notificationId: string | null;
   googleEventId: string | null;
+  googleCalendarSync: boolean;
+  googleReminderMinutes: number | null;
+  googleSyncHash: string | null;
+  recurringTaskId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,10 +41,15 @@ export type CreateTaskInput = {
   period: TaskPeriod;
   notifyAt?: string | null;
   googleEventId?: string | null;
+  googleCalendarSync?: boolean;
+  googleReminderMinutes?: number | null;
+  recurringTaskId?: string | null;
 };
 
 export type UpdateTaskInput = Partial<
   Pick<Task, "title" | "description" | "date" | "period" | "status">
 > & {
   notifyAt?: string | null;
+  googleCalendarSync?: boolean;
+  googleReminderMinutes?: number | null;
 };

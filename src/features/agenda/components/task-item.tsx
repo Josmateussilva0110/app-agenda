@@ -36,7 +36,7 @@ export function TaskItem({ task, onToggleComplete, onRemove }: TaskItemProps) {
         <Pressable
           onPress={() => void onToggleComplete(task.id)}
           hitSlop={8}
-          style={styles.checkButton}
+          style={({ pressed }) => [styles.checkButton, pressed && styles.checkButtonPressed]}
           accessibilityLabel={
             isCompleted ? `Desmarcar tarefa ${task.title}` : `Concluir tarefa ${task.title}`
           }
@@ -71,7 +71,7 @@ export function TaskItem({ task, onToggleComplete, onRemove }: TaskItemProps) {
         <Pressable
           onPress={() => setConfirmVisible(true)}
           hitSlop={8}
-          style={styles.deleteButton}
+          style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
           accessibilityLabel={`Remover tarefa ${task.title}`}
           accessibilityRole="button"
         >
@@ -121,6 +121,10 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       alignItems: "center",
       justifyContent: "center",
     },
+    checkButtonPressed: {
+      opacity: 0.6,
+      transform: [{ scale: 0.9 }],
+    },
     checkIconFilled: {
       width: 22,
       height: 22,
@@ -158,5 +162,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.backgroundElement,
+    },
+    deleteButtonPressed: {
+      opacity: 0.6,
+      transform: [{ scale: 0.92 }],
     },
   });

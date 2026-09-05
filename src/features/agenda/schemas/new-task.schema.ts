@@ -1,17 +1,39 @@
 import { z } from "zod";
 
+import {
+  TASK_DESCRIPTION_MAX_LENGTH,
+  TASK_TITLE_MAX_LENGTH,
+} from "@/constants/validation";
 import { TASK_PERIODS } from "@/types/task";
 import { isTimeInPeriod, isValidTime } from "@/utils/task-time";
+import {
+  DEFAULT_GOOGLE_REMINDER_MINUTES,
+  GOOGLE_REMINDER_MINUTES_OPTIONS,
+} from "@/constants/google-calendar";
+
+const googleReminderMinutesSchema = z
+  .number()
+  .refine(
+    (value) =>
+      GOOGLE_REMINDER_MINUTES_OPTIONS.some((option) => option.minutes === value),
+    "Escolha um lembrete válido para o Google Agenda."
+  );
 
 export const newTaskSchema = z
   .object({
     title: z
       .string()
       .trim()
-      .min(1, "Descreva o que você precisa fazer."),
+      .min(1, "Descreva o que você precisa fazer.")
+      .max(
+        TASK_TITLE_MAX_LENGTH,
+        `Use no máximo ${TASK_TITLE_MAX_LENGTH} caracteres.`
+      ),
     period: z.enum(TASK_PERIODS),
     time: z.string(),
     notify: z.boolean(),
+    googleCalendarSync: z.boolean(),
+    googleReminderMinutes: googleReminderMinutesSchema,
   })
   .superRefine((data, ctx) => {
     if (!isValidTime(data.time)) {

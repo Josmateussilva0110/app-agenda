@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AgendaCalendar } from "@/features/agenda/components/agenda-calendar";
@@ -65,6 +66,13 @@ export function AgendaScreen() {
   useEffect(() => {
     void loadMarkedDates();
   }, [loadMarkedDates]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+      void loadMarkedDates();
+    }, [loadMarkedDates, refresh])
+  );
 
   const tasksByPeriod = useMemo(() => {
     const grouped: Record<TaskPeriod, typeof tasks> = {
@@ -195,6 +203,7 @@ export function AgendaScreen() {
       <NewTaskModal
         visible={newTaskOpen}
         date={selectedDateKey}
+        googleConnected={googleConnected}
         onClose={() => setNewTaskOpen(false)}
         onSubmit={handleCreateTask}
       />

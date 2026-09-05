@@ -8,19 +8,23 @@ import { useTheme } from "@/context/theme.context";
 
 type AgendaFabProps = {
   onPress: () => void;
+  bottomOffset?: number;
 };
 
-export function AgendaFab({ onPress }: AgendaFabProps) {
+export function AgendaFab({ onPress, bottomOffset = 16 }: AgendaFabProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(
-    () => createStyles(colors, Math.max(insets.bottom, 12)),
-    [colors, insets.bottom]
+    () => createStyles(colors, Math.max(insets.bottom, 12), bottomOffset),
+    [bottomOffset, colors, insets.bottom]
   );
 
   return (
     <View style={[styles.wrap, premiumFabShadow(isDark)]}>
-      <Pressable onPress={onPress} style={styles.button}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+      >
         <Plus size={28} color={colors.fabIcon} strokeWidth={2.5} />
       </Pressable>
     </View>
@@ -29,15 +33,14 @@ export function AgendaFab({ onPress }: AgendaFabProps) {
 
 const createStyles = (
   colors: ReturnType<typeof useTheme>["colors"],
-  bottomInset: number
+  bottomInset: number,
+  bottomOffset: number
 ) =>
   StyleSheet.create({
     wrap: {
       position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 16 + bottomInset,
-      alignItems: "center",
+      right: 20,
+      bottom: bottomOffset + bottomInset,
     },
     button: {
       width: 64,
@@ -46,5 +49,9 @@ const createStyles = (
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.fabBackground,
+    },
+    buttonPressed: {
+      opacity: 0.85,
+      transform: [{ scale: 0.94 }],
     },
   });

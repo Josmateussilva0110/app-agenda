@@ -39,11 +39,13 @@ O APK será gerado em `./build/app.apk`.
 
 O login usa **Google Sign-In nativo** (sem redirect `localhost`).
 
-Após mudanças nativas, gere um novo APK:
+Após mudanças nativas (SQLCipher, permissões, backup), gere um novo APK:
 
 ```bash
 ./build-apk.sh --clean-prebuild
 ```
+
+O banco local (`agenda.db`) passa a ser criptografado com chave no SecureStore. Na primeira abertura após a atualização, bancos antigos são migrados automaticamente com `PRAGMA rekey`.
 
 ## Estrutura
 

@@ -1,9 +1,13 @@
 import {
+  TASK_DESCRIPTION_MAX_LENGTH,
+  TASK_TITLE_MAX_LENGTH,
+  truncateText,
+} from "@/constants/validation";
+import {
   createTask,
-  getTaskByGoogleEventId,
+  listExistingGoogleEventIds,
   listTasksInDateRange,
-  setTaskGoogleEventId,
-  updateTask,
+  setTaskGoogleSyncState,
 } from "@/database/repositories/tasks.repository";
 import {
   createPrimaryCalendarEvent,
@@ -17,7 +21,10 @@ import type {
   GoogleCalendarSyncResult,
 } from "@/services/google-calendar/types";
 import type { CreateTaskInput, Task } from "@/types/task";
+import { DEFAULT_GOOGLE_REMINDER_MINUTES } from "@/constants/google-calendar";
 import { formatDateKey, getWeekRange, toDayEndIso, toDayStartIso } from "@/utils/date";
+import { runConcurrent } from "@/utils/concurrency";
+import { buildGoogleCalendarSyncHash } from "@/utils/task-sync-hash";
 import {
   buildNotifyDate,
   formatTime,
@@ -51,12 +58,19 @@ function mapGoogleEventToTaskInput(
   }
 
   return {
-    title: event.summary?.trim() || "Evento do Google",
-    description: event.description?.trim() || null,
+    title: truncateText(
+      event.summary?.trim() || "Evento do Google",
+      TASK_TITLE_MAX_LENGTH
+    ),
+    description: event.description
+      ? truncateText(event.description, TASK_DESCRIPTION_MAX_LENGTH)
+      : null,
     date,
     period: periodFromHour(parseTime(notifyAt).hour),
     notifyAt,
     googleEventId: event.id,
+    googleCalendarSync: true,
+    googleReminderMinutes: DEFAULT_GOOGLE_REMINDER_MINUTES,
   };
 }
 
@@ -64,6 +78,8 @@ function mapTaskToGoogleEvent(task: Task) {
   const timeZone = getLocalTimeZone();
   const start = buildNotifyDate(task.date, task.notifyAt!);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const reminderMinutes =
+    task.googleReminderMinutes ?? DEFAULT_GOOGLE_REMINDER_MINUTES;
 
   return {
     summary: task.title,
@@ -78,9 +94,62 @@ function mapTaskToGoogleEvent(task: Task) {
     },
     reminders: {
       useDefault: false,
-      overrides: [{ method: "popup", minutes: 0 }],
+      overrides: [{ method: "popup", minutes: reminderMinutes }],
     },
   };
+}
+
+function shouldSyncTaskWithGoogle(task: Task): boolean {
+  return Boolean(task.notifyAt && task.googleCalendarSync);
+}
+
+function needsGoogleExport(task: Task): boolean {
+  if (!shouldSyncTaskWithGoogle(task)) {
+    return false;
+  }
+
+  const nextHash = buildGoogleCalendarSyncHash(task);
+  return !(task.googleEventId && task.googleSyncHash === nextHash);
+}
+
+const GOOGLE_EXPORT_CONCURRENCY = 8;
+
+async function persistGoogleSyncState(
+  task: Task,
+  googleEventId: string | null
+): Promise<void> {
+  const syncHash = googleEventId ? buildGoogleCalendarSyncHash(task) : null;
+  await setTaskGoogleSyncState(task.id, googleEventId, syncHash);
+}
+
+async function exportTaskToGoogle(
+  accessToken: string,
+  task: Task
+): Promise<"exported" | "updated" | "skipped"> {
+  if (!shouldSyncTaskWithGoogle(task)) {
+    return "skipped";
+  }
+
+  const payload = mapTaskToGoogleEvent(task);
+  const nextHash = buildGoogleCalendarSyncHash(task);
+
+  if (task.googleEventId && task.googleSyncHash === nextHash) {
+    return "skipped";
+  }
+
+  if (task.googleEventId) {
+    await updatePrimaryCalendarEvent(accessToken, task.googleEventId, payload);
+    await persistGoogleSyncState(task, task.googleEventId);
+    return "updated";
+  }
+
+  const created = await createPrimaryCalendarEvent(accessToken, payload);
+  if (!created.id) {
+    return "skipped";
+  }
+
+  await persistGoogleSyncState(task, created.id);
+  return "exported";
 }
 
 async function importEvents(
@@ -94,16 +163,19 @@ async function importEvents(
     toDayEndIso(endDate)
   );
 
+  const eventIds = events
+    .map((event) => event.id)
+    .filter((eventId): eventId is string => Boolean(eventId));
+  const existingIds = await listExistingGoogleEventIds(eventIds);
+
   let imported = 0;
 
   for (const event of events) {
     const input = mapGoogleEventToTaskInput(event);
-    if (!input) continue;
-
-    const existing = await getTaskByGoogleEventId(input.googleEventId);
-    if (existing) continue;
+    if (!input || existingIds.has(input.googleEventId)) continue;
 
     await createTask(input);
+    existingIds.add(input.googleEventId);
     imported += 1;
   }
 
@@ -116,28 +188,17 @@ async function exportTasks(
   endDate: string
 ): Promise<{ exported: number; updated: number }> {
   const tasks = await listTasksInDateRange(startDate, endDate);
-  let exported = 0;
-  let updated = 0;
+  const tasksToExport = tasks.filter(needsGoogleExport);
+  const results = await runConcurrent(
+    tasksToExport,
+    GOOGLE_EXPORT_CONCURRENCY,
+    (task) => exportTaskToGoogle(accessToken, task)
+  );
 
-  for (const task of tasks) {
-    if (!task.notifyAt) continue;
-
-    const payload = mapTaskToGoogleEvent(task);
-
-    if (task.googleEventId) {
-      await updatePrimaryCalendarEvent(accessToken, task.googleEventId, payload);
-      updated += 1;
-      continue;
-    }
-
-    const created = await createPrimaryCalendarEvent(accessToken, payload);
-    if (!created.id) continue;
-
-    await setTaskGoogleEventId(task.id, created.id);
-    exported += 1;
-  }
-
-  return { exported, updated };
+  return {
+    exported: results.filter((result) => result === "exported").length,
+    updated: results.filter((result) => result === "updated").length,
+  };
 }
 
 export async function deleteLinkedGoogleCalendarEvent(
@@ -149,6 +210,26 @@ export async function deleteLinkedGoogleCalendarEvent(
   }
 
   await deletePrimaryCalendarEvent(accessToken, googleEventId);
+}
+
+export async function syncTaskWithGoogleCalendar(task: Task): Promise<boolean> {
+  const accessToken = await getGoogleAccessToken();
+  if (!accessToken) {
+    return false;
+  }
+
+  if (!shouldSyncTaskWithGoogle(task)) {
+    if (task.googleEventId) {
+      await deletePrimaryCalendarEvent(accessToken, task.googleEventId);
+      await persistGoogleSyncState(task, null);
+      return true;
+    }
+
+    return false;
+  }
+
+  const result = await exportTaskToGoogle(accessToken, task);
+  return result === "exported" || result === "updated";
 }
 
 export async function syncGoogleCalendarForDate(

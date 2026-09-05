@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Bell, X } from "lucide-react-native";
+import { Bell, CalendarSync, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardSafeArea } from "@/components/keyboard-safe-area";
 import { useTheme } from "@/context/theme.context";
 import { PeriodPicker } from "@/features/agenda/components/period-picker";
+import { GoogleReminderPicker } from "@/features/agenda/components/google-reminder-picker";
 import { TaskTimePicker } from "@/features/agenda/components/task-time-picker";
 import {
   newTaskSchema,
@@ -35,6 +36,7 @@ import {
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { requestNotificationPermissions } from "@/services/notifications/task-notifications.service";
 import { settingsStorage } from "@/storage/settings.storage";
+import { DEFAULT_GOOGLE_REMINDER_MINUTES, GOOGLE_REMINDER_MINUTES_OPTIONS } from "@/constants/google-calendar";
 import type { CreateTaskInput } from "@/types/task";
 import { clampTimeToPeriod, DEFAULT_PERIOD_TIME, normalizeTimeInput } from "@/utils/task-time";
 
@@ -52,13 +54,33 @@ type FocusedField = "title" | "time" | null;
 type NewTaskModalProps = {
   visible: boolean;
   date: string;
+  googleConnected: boolean;
   onClose: () => void;
   onSubmit: (input: CreateTaskInput) => Promise<void>;
 };
 
+function getDefaultFormValues(): NewTaskFormValues {
+  const reminderMinutes = settingsStorage.getGoogleCalendarReminderMinutes();
+  const validReminder = GOOGLE_REMINDER_MINUTES_OPTIONS.some(
+    (option) => option.minutes === reminderMinutes
+  )
+    ? reminderMinutes
+    : DEFAULT_GOOGLE_REMINDER_MINUTES;
+
+  return {
+    title: "",
+    period: "manha",
+    time: DEFAULT_PERIOD_TIME.manha,
+    notify: settingsStorage.getNotificationsEnabled(),
+    googleCalendarSync: settingsStorage.getGoogleCalendarSyncEnabled(),
+    googleReminderMinutes: validReminder as NewTaskFormValues["googleReminderMinutes"],
+  };
+}
+
 export function NewTaskModal({
   visible,
   date,
+  googleConnected,
   onClose,
   onSubmit,
 }: NewTaskModalProps) {
@@ -92,15 +114,13 @@ export function NewTaskModal({
   } = useForm<NewTaskFormValues>({
     resolver: zodResolver(newTaskSchema),
     mode: "onChange",
-    defaultValues: {
-      title: "",
-      period: "manha",
-      time: DEFAULT_PERIOD_TIME.manha,
-      notify: settingsStorage.getNotificationsEnabled(),
-    },
+    defaultValues: getDefaultFormValues(),
   });
 
   const period = watch("period");
+  const notifyEnabled = watch("notify");
+  const googleCalendarSyncEnabled = watch("googleCalendarSync");
+  const showGoogleOptions = googleConnected && notifyEnabled;
 
   const applySheetLift = useCallback(
     (height: number) => {
@@ -214,12 +234,7 @@ export function NewTaskModal({
   useEffect(() => {
     if (!visible) return;
 
-    reset({
-      title: "",
-      period: "manha",
-      time: DEFAULT_PERIOD_TIME.manha,
-      notify: settingsStorage.getNotificationsEnabled(),
-    });
+    reset(getDefaultFormValues());
     setFocusedField(null);
     sheetKeyboardLift.value = 0;
     Keyboard.dismiss();
@@ -275,7 +290,20 @@ export function NewTaskModal({
         date,
         period: values.period,
         notifyAt: shouldNotify ? normalizeTimeInput(values.time) : null,
+        googleCalendarSync:
+          shouldNotify && googleConnected ? values.googleCalendarSync : false,
+        googleReminderMinutes:
+          shouldNotify && googleConnected && values.googleCalendarSync
+            ? values.googleReminderMinutes
+            : null,
       });
+
+      if (shouldNotify && googleConnected) {
+        await settingsStorage.setGoogleCalendarSyncEnabled(values.googleCalendarSync);
+        await settingsStorage.setGoogleCalendarReminderMinutes(
+          values.googleReminderMinutes
+        );
+      }
       onClose();
     } finally {
       setSubmitting(false);
@@ -427,6 +455,61 @@ export function NewTaskModal({
                   />
                 </View>
 
+                {showGoogleOptions ? (
+                  <View style={styles.googleSection}>
+                    <View style={styles.notifyRow}>
+                      <Pressable
+                        onPress={dismissFormKeyboard}
+                        style={styles.notifyContent}
+                      >
+                        <View style={styles.notifyIcon}>
+                          <CalendarSync size={18} color={colors.text} />
+                        </View>
+                        <View style={styles.notifyText}>
+                          <Text style={styles.notifyTitle}>Google Agenda</Text>
+                          <Text style={styles.notifySubtitle}>
+                            Criar evento com lembrete no Calendar
+                          </Text>
+                        </View>
+                      </Pressable>
+                      <Controller
+                        control={control}
+                        name="googleCalendarSync"
+                        render={({ field: { onChange, value } }) => (
+                          <Switch
+                            value={value}
+                            onValueChange={onChange}
+                            trackColor={{
+                              false: colors.border,
+                              true: colors.primary,
+                            }}
+                            thumbColor={colors.onPrimary}
+                          />
+                        )}
+                      />
+                    </View>
+
+                    {googleCalendarSyncEnabled ? (
+                      <View style={styles.reminderField}>
+                        <Text style={styles.label}>
+                          Lembrete no Google Calendar
+                        </Text>
+                        <Controller
+                          control={control}
+                          name="googleReminderMinutes"
+                          render={({ field: { onChange, value } }) => (
+                            <GoogleReminderPicker
+                              value={value}
+                              onChange={onChange}
+                              onBeforeChange={dismissFormKeyboard}
+                            />
+                          )}
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
+
                 <Pressable
                   onPress={() => void submit()}
                   disabled={!isValid || submitting}
@@ -562,6 +645,12 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     notifySubtitle: {
       fontSize: 13,
       color: colors.textSecondary,
+    },
+    googleSection: {
+      gap: 12,
+    },
+    reminderField: {
+      gap: 10,
     },
     submitButton: {
       borderRadius: 16,

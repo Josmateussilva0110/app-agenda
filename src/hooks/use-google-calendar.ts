@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  getGoogleCalendarErrorMessage,
   googleCalendarService,
   type GoogleAccountProfile,
   type GoogleCalendarSyncResult,
@@ -88,9 +89,12 @@ export function useGoogleCalendar() {
       setLastResult(result);
       return result;
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao sincronizar Google Agenda.";
-      setError(message);
+      setError(
+        getGoogleCalendarErrorMessage(
+          err,
+          "Erro ao sincronizar Google Agenda."
+        )
+      );
       throw err;
     } finally {
       setSyncing(false);

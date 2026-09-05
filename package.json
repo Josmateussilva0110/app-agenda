@@ -1,7 +1,7 @@
 {
   "name": "minha-agenda",
   "main": "expo-router/entry",
-  "version": "1.0.11",
+  "version": "1.0.19",
   "private": true,
   "scripts": {
     "start": "expo start",
@@ -17,7 +17,6 @@
     "@hookform/resolvers": "^5.2.2",
     "@react-native-google-signin/google-signin": "^16.1.4",
     "expo": "^54.0.0",
-    "expo-auth-session": "~7.0.11",
     "expo-build-properties": "~1.0.10",
     "expo-constants": "~18.0.14",
     "expo-crypto": "~15.0.9",

@@ -4,16 +4,19 @@ import {
   getGoogleAccountProfile,
   hasGoogleAccountConnected,
 } from "@/services/google-calendar/auth";
+import { toGoogleCalendarUserMessage } from "@/services/google-calendar/api-errors";
 import { isGoogleCalendarConfigured } from "@/services/google-calendar/config";
 import {
   deleteLinkedGoogleCalendarEvent,
   syncGoogleCalendarForDate,
+  syncTaskWithGoogleCalendar,
 } from "@/services/google-calendar/sync";
 import type {
   GoogleAccountProfile,
   GoogleCalendarSyncResult,
 } from "@/services/google-calendar/types";
 import { settingsStorage } from "@/storage/settings.storage";
+import type { Task } from "@/types/task";
 
 export type GoogleCalendarSyncStatus = "idle" | "syncing" | "error";
 
@@ -77,4 +80,38 @@ export const googleCalendarService = {
       // Mantém a exclusão local mesmo se o Google estiver indisponível.
     }
   },
+
+  async syncTask(task: Task): Promise<boolean> {
+    const connected = await this.isConnected();
+    if (!connected) {
+      return false;
+    }
+
+    try {
+      return await syncTaskWithGoogleCalendar(task);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn("[google-calendar] Falha ao sincronizar tarefa.", error);
+      }
+      return false;
+    }
+  },
+
+  syncTaskInBackground(
+    task: Task,
+    onChanged?: () => void | Promise<void>
+  ): void {
+    void this.syncTask(task).then((changed) => {
+      if (changed) {
+        void onChanged?.();
+      }
+    });
+  },
 };
+
+export function getGoogleCalendarErrorMessage(
+  error: unknown,
+  fallback = "Erro ao sincronizar Google Agenda."
+): string {
+  return toGoogleCalendarUserMessage(error, fallback);
+}
