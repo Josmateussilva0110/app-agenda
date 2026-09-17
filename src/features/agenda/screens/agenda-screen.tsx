@@ -19,6 +19,7 @@ import { NewTaskModal } from "@/features/agenda/components/new-task-modal";
 import { NotificationPermissionBanner } from "@/features/agenda/components/notification-permission-banner";
 import { useGoogleCalendar } from "@/hooks/use-google-calendar";
 import { useSelectedDate } from "@/hooks/use-selected-date";
+import { useTaskMarkers } from "@/hooks/use-task-markers";
 import { useTasks } from "@/hooks/use-tasks";
 import { useTheme } from "@/context/theme.context";
 import { TASK_PERIODS, type TaskPeriod } from "@/types/task";
@@ -28,7 +29,15 @@ export function AgendaScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.bottom), [colors, insets.bottom]);
-  const { selectedDate, selectedDateKey, setSelectedDate } = useSelectedDate();
+  const {
+    selectedDate,
+    selectedDateKey,
+    setSelectedDate,
+    visibleMonth,
+    goToPreviousMonth,
+    goToNextMonth,
+  } = useSelectedDate();
+  const { markers, refresh: refreshMarkers } = useTaskMarkers(visibleMonth);
   const { tasks, loading, error, refresh, addTask, removeTask, toggleTaskComplete } =
     useTasks(selectedDateKey);
   const {
@@ -48,9 +57,9 @@ export function AgendaScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
+    await Promise.all([refresh(), refreshMarkers()]);
     setRefreshing(false);
-  }, [refresh]);
+  }, [refresh, refreshMarkers]);
 
   const tasksByPeriod = useMemo(() => {
     const grouped: Record<TaskPeriod, typeof tasks> = {
@@ -67,22 +76,33 @@ export function AgendaScreen() {
   }, [tasks]);
 
   const handleCreateTask = useCallback(
-    (input: Parameters<typeof addTask>[0]) => addTask(input),
-    [addTask]
+    async (input: Parameters<typeof addTask>[0]) => {
+      const created = await addTask(input);
+      if (created) {
+        await refreshMarkers();
+      }
+
+      return created;
+    },
+    [addTask, refreshMarkers]
   );
 
   const handleRemoveTask = useCallback(
     async (taskId: string) => {
-      await removeTask(taskId);
+      if (await removeTask(taskId)) {
+        await refreshMarkers();
+      }
     },
-    [removeTask]
+    [refreshMarkers, removeTask]
   );
 
   const handleToggleComplete = useCallback(
     async (taskId: string) => {
-      await toggleTaskComplete(taskId);
+      if (await toggleTaskComplete(taskId)) {
+        await refreshMarkers();
+      }
     },
-    [toggleTaskComplete]
+    [refreshMarkers, toggleTaskComplete]
   );
 
   // connect/sync relançam de propósito: o hook já traduziu o motivo para
@@ -110,8 +130,8 @@ export function AgendaScreen() {
       return;
     }
 
-    await refresh();
-  }, [refresh, selectedDateKey, syncGoogle]);
+    await Promise.all([refresh(), refreshMarkers()]);
+  }, [refresh, refreshMarkers, selectedDateKey, syncGoogle]);
 
   const googleLastMessage = googleLastResult
     ? `${googleLastResult.imported} importado(s), ${googleLastResult.exported} exportado(s), ${googleLastResult.updated} atualizado(s).` +
@@ -175,6 +195,10 @@ export function AgendaScreen() {
           <AgendaCalendar
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
+            visibleMonth={visibleMonth}
+            onPreviousMonth={goToPreviousMonth}
+            onNextMonth={goToNextMonth}
+            markers={markers}
           />
         </View>
 

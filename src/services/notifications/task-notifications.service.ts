@@ -72,7 +72,9 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     await settingsStorage.setNotificationsEnabled(granted);
     return granted;
   } catch (error) {
-    console.warn("[notifications] Permissão não disponível.", error);
+    if (__DEV__) {
+      console.warn("[notifications] Permissão não disponível.", error);
+    }
     return false;
   }
 }
@@ -85,7 +87,9 @@ export async function scheduleTaskNotification(task: Task): Promise<string | nul
 
   const triggerDate = buildNotifyDate(task.date, task.notifyAt);
   if (triggerDate.getTime() <= Date.now()) {
-    console.warn("[notifications] Horário já passou, lembrete não agendado.");
+    if (__DEV__) {
+      console.warn("[notifications] Horário já passou, lembrete não agendado.");
+    }
     return null;
   }
 
@@ -94,7 +98,9 @@ export async function scheduleTaskNotification(task: Task): Promise<string | nul
 
     const granted = await ensureNotificationPermission(Notifications);
     if (!granted) {
-      console.warn("[notifications] Permissão negada, lembrete não agendado.");
+      if (__DEV__) {
+        console.warn("[notifications] Permissão negada, lembrete não agendado.");
+      }
       return null;
     }
 
@@ -118,7 +124,9 @@ export async function scheduleTaskNotification(task: Task): Promise<string | nul
     await setTaskNotificationId(task.id, notificationId);
     return notificationId;
   } catch (error) {
-    console.warn("[notifications] Não foi possível agendar lembrete.", error);
+    if (__DEV__) {
+      console.warn("[notifications] Não foi possível agendar lembrete.", error);
+    }
     return null;
   }
 }
@@ -132,6 +140,8 @@ export async function cancelTaskNotification(notificationId: string | null): Pro
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   } catch (error) {
-    console.warn("[notifications] Não foi possível cancelar lembrete.", error);
+    if (__DEV__) {
+      console.warn("[notifications] Não foi possível cancelar lembrete.", error);
+    }
   }
 }

@@ -19,7 +19,9 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("[app] Erro não tratado:", error, info.componentStack);
+    if (__DEV__) {
+      console.error("[app] Erro não tratado:", error, info.componentStack);
+    }
   }
 
   render() {
@@ -27,7 +29,13 @@ export class AppErrorBoundary extends Component<Props, State> {
       return (
         <View style={styles.container}>
           <Text style={styles.title}>Algo deu errado</Text>
-          <Text style={styles.message}>{this.state.error.message}</Text>
+          {/* Mensagem de exceção é detalhe interno: em produção o usuário
+              recebe uma orientação, não o texto do erro. */}
+          <Text style={styles.message}>
+            {__DEV__
+              ? this.state.error.message
+              : "Feche e abra o app novamente. Se continuar, reinstale a última versão."}
+          </Text>
         </View>
       );
     }

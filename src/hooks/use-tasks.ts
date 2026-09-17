@@ -14,6 +14,7 @@ import {
   scheduleTaskNotification,
 } from "@/services/notifications/task-notifications.service";
 import type { CreateTaskInput, Task, UpdateTaskInput } from "@/types/task";
+import { toUserMessage } from "@/utils/error-message";
 
 export function useTasks(date: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -42,7 +43,7 @@ export function useTasks(date: string) {
       loadedDateRef.current = date;
     } catch (err) {
       if (loadId !== loadIdRef.current) return;
-      setError(err instanceof Error ? err.message : "Erro ao carregar tarefas.");
+      setError(toUserMessage(err, "Erro ao carregar tarefas."));
     } finally {
       if (loadId === loadIdRef.current) {
         setLoading(false);

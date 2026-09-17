@@ -8,7 +8,9 @@ export async function getNotificationsModule(): Promise<NotificationsModule | nu
   try {
     return await import("expo-notifications");
   } catch (error) {
-    console.warn("[notifications] Módulo indisponível.", error);
+    if (__DEV__) {
+      console.warn("[notifications] Módulo indisponível.", error);
+    }
     return null;
   }
 }

@@ -10,6 +10,7 @@ import {
   getGoogleCalendarConfig,
   GOOGLE_CALENDAR_SCOPES,
 } from "@/services/google-calendar/config";
+import { toUserMessage } from "@/utils/error-message";
 import type { GoogleAccountProfile } from "@/services/google-calendar/types";
 
 const TOKEN_STORAGE_KEY = "google_calendar_tokens";
@@ -29,7 +30,10 @@ function configureGoogleSignIn() {
 
   GoogleSignin.configure({
     webClientId,
-    offlineAccess: true,
+    // Sem acesso offline: ele só serve para obter um `serverAuthCode`, que se
+    // troca por refresh token num backend. Não há backend aqui, o app nunca lê
+    // esse código, e pedi-lo amplia o que o usuário consente sem contrapartida.
+    offlineAccess: false,
     scopes: GOOGLE_CALENDAR_SCOPES,
   });
 
@@ -86,12 +90,14 @@ function getSignInErrorMessage(error: unknown): string {
       case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
         return "Google Play Services não está disponível neste dispositivo.";
       default:
-        return error.message || "Não foi possível conectar ao Google Agenda.";
+        // Fora dos códigos conhecidos, a mensagem é texto do SDK escrito para
+        // quem desenvolve — não vai para a tela em produção.
+        return toUserMessage(error, "Não foi possível conectar ao Google Agenda.");
     }
   }
 
   if (error instanceof Error) {
-    return error.message;
+    return toUserMessage(error, "Não foi possível conectar ao Google Agenda.");
   }
 
   return "Não foi possível conectar ao Google Agenda.";
@@ -167,6 +173,15 @@ export function getGoogleAccountProfile(): GoogleAccountProfile | null {
 
 export async function disconnectGoogleAccount(): Promise<void> {
   configureGoogleSignIn();
+
+  try {
+    // Revogar antes de sair. Só o `signOut` apaga a sessão local e deixa a
+    // concessão de `calendar.events` viva na conta: quem pegasse o aparelho
+    // reconectaria sem tela de consentimento e leria a agenda do usuário.
+    await GoogleSignin.revokeAccess();
+  } catch {
+    // Sem rede não dá para revogar agora; o token local some de qualquer forma.
+  }
 
   try {
     await GoogleSignin.signOut();

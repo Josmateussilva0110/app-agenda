@@ -57,10 +57,12 @@ export async function cancelRecurringTaskNotifications(
     notificationIds.map((notificationId) =>
       Notifications.cancelScheduledNotificationAsync(notificationId).catch(
         (error) => {
-          console.warn(
-            "[notifications] Não foi possível cancelar lembrete de rotina.",
-            error
-          );
+          if (__DEV__) {
+            console.warn(
+              "[notifications] Não foi possível cancelar lembrete de rotina.",
+              error
+            );
+          }
         }
       )
     )
@@ -85,9 +87,11 @@ export async function scheduleRecurringTaskNotifications(
 
     const granted = await ensureNotificationPermission(Notifications);
     if (!granted) {
-      console.warn(
-        "[notifications] Permissão negada, lembrete de rotina não agendado."
-      );
+      if (__DEV__) {
+        console.warn(
+          "[notifications] Permissão negada, lembrete de rotina não agendado."
+        );
+      }
       await setRecurringTaskNotificationIds(task.id, []);
       return;
     }
@@ -119,9 +123,11 @@ export async function scheduleRecurringTaskNotifications(
 
     await setRecurringTaskNotificationIds(task.id, notificationIds);
   } catch (error) {
-    console.warn(
-      "[notifications] Não foi possível agendar lembretes de rotina.",
-      error
-    );
+    if (__DEV__) {
+      console.warn(
+        "[notifications] Não foi possível agendar lembretes de rotina.",
+        error
+      );
+    }
   }
 }

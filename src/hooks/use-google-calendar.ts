@@ -57,9 +57,9 @@ export function useGoogleCalendar() {
       setConnected(true);
       setAccount(googleCalendarService.getAccountProfile());
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao conectar Google Agenda.";
-      setError(message);
+      setError(
+        getGoogleCalendarErrorMessage(err, "Erro ao conectar Google Agenda.")
+      );
       throw err;
     }
   }, []);
@@ -73,9 +73,9 @@ export function useGoogleCalendar() {
       setConnected(false);
       setAccount(null);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao desconectar Google Agenda.";
-      setError(message);
+      setError(
+        getGoogleCalendarErrorMessage(err, "Erro ao desconectar Google Agenda.")
+      );
       throw err;
     }
   }, []);

@@ -387,6 +387,34 @@ export async function listExistingGoogleEventIds(
   return new Set(rows.map((row) => row.google_event_id));
 }
 
+/**
+ * Datas do intervalo que têm ao menos uma tarefa pendente — é tudo que o
+ * calendário precisa para decidir o ponto.
+ *
+ * O filtro é do banco de propósito: trazer as tarefas do mês para descobrir
+ * isso em JavaScript gastaria memória e descarte para chegar na mesma lista.
+ * `idx_tasks_date_period` cobre a faixa de datas.
+ */
+export async function listPendingTaskDates(
+  startDate: string,
+  endDate: string
+): Promise<string[]> {
+  const db = await getDatabase();
+  // O filtro de status fica no HAVING, não no WHERE: com `status = 'pending'`
+  // no WHERE o SQLite prefere `idx_tasks_status` e varre as pendentes de todo o
+  // histórico para desenhar um mês. Agrupando pela faixa de datas ele usa
+  // `idx_tasks_date_period` e o custo fica preso ao mês exibido.
+  const rows = await db.getAllAsync<{ date: string }>(
+    `SELECT date FROM tasks
+     WHERE date >= ? AND date <= ?
+     GROUP BY date
+     HAVING sum(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) > 0`,
+    [startDate, endDate]
+  );
+
+  return rows.map((row) => row.date);
+}
+
 export async function listTasksInDateRange(
   startDate: string,
   endDate: string

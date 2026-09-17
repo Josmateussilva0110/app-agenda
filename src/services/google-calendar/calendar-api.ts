@@ -1,8 +1,10 @@
-import type {
-  GoogleCalendarEvent,
-  GoogleCalendarEventsResponse,
-} from "@/services/google-calendar/types";
+import type { GoogleCalendarEvent } from "@/services/google-calendar/types";
 import { GoogleCalendarApiError } from "@/services/google-calendar/api-errors";
+import {
+  googleCalendarEventSchema,
+  googleCalendarEventsResponseSchema,
+  parseGoogleCalendarEvents,
+} from "@/services/google-calendar/schemas";
 
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 
@@ -53,23 +55,59 @@ export async function listPrimaryCalendarEvents(
       params.set("pageToken", pageToken);
     }
 
-    const data = await calendarRequest<GoogleCalendarEventsResponse>(
+    const raw = await calendarRequest<unknown>(
       `/calendars/primary/events?${params.toString()}`,
       accessToken
     );
 
-    events.push(...(data.items ?? []));
-    pageToken = data.nextPageToken;
+    const response = googleCalendarEventsResponseSchema.safeParse(raw);
+    if (!response.success) {
+      throw new GoogleCalendarApiError(
+        200,
+        "Resposta do Google Agenda em formato inesperado."
+      );
+    }
+
+    const { events: pageEvents, discarded } = parseGoogleCalendarEvents(
+      response.data.items ?? []
+    );
+
+    if (discarded > 0 && __DEV__) {
+      console.warn(
+        `[google-calendar] ${discarded} evento(s) fora do formato esperado, ignorados.`
+      );
+    }
+
+    events.push(...pageEvents);
+    pageToken = response.data.nextPageToken;
   } while (pageToken);
 
   return events;
+}
+
+/**
+ * O evento devolvido pela escrita passa pelo mesmo schema da leitura: é daqui
+ * que sai o `id` gravado em `tasks.google_event_id`, e um `id` que não seja
+ * string quebraria longe da origem, na próxima gravação ou na próxima URL.
+ */
+function parseWrittenEvent(raw: unknown): GoogleCalendarEvent {
+  const parsed = googleCalendarEventSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    throw new GoogleCalendarApiError(
+      200,
+      "Resposta do Google Agenda em formato inesperado."
+    );
+  }
+
+  return parsed.data;
 }
 
 export async function createPrimaryCalendarEvent(
   accessToken: string,
   event: Record<string, unknown>
 ): Promise<GoogleCalendarEvent> {
-  return calendarRequest<GoogleCalendarEvent>(
+  const raw = await calendarRequest<unknown>(
     "/calendars/primary/events",
     accessToken,
     {
@@ -77,6 +115,8 @@ export async function createPrimaryCalendarEvent(
       body: JSON.stringify(event),
     }
   );
+
+  return parseWrittenEvent(raw);
 }
 
 export async function updatePrimaryCalendarEvent(
@@ -84,7 +124,7 @@ export async function updatePrimaryCalendarEvent(
   eventId: string,
   event: Record<string, unknown>
 ): Promise<GoogleCalendarEvent> {
-  return calendarRequest<GoogleCalendarEvent>(
+  const raw = await calendarRequest<unknown>(
     `/calendars/primary/events/${encodeURIComponent(eventId)}`,
     accessToken,
     {
@@ -92,6 +132,8 @@ export async function updatePrimaryCalendarEvent(
       body: JSON.stringify(event),
     }
   );
+
+  return parseWrittenEvent(raw);
 }
 
 export async function deletePrimaryCalendarEvent(

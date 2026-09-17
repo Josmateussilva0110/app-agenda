@@ -92,6 +92,16 @@ export function parseDateKey(dateKey: string): Date {
   return new Date(year, month - 1, day);
 }
 
+/** Primeiro e último dia do mês da data, em chave `YYYY-MM-DD`. */
+export function getMonthRange(date: Date): { start: string; end: string } {
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+  return {
+    start: formatDateKey(startOfMonth(date)),
+    end: formatDateKey(lastDay),
+  };
+}
+
 export function getWeekRange(dateKey: string): { start: string; end: string } {
   const date = parseDateKey(dateKey);
   const weekday = date.getDay();

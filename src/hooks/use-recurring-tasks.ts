@@ -16,6 +16,7 @@ import type {
   RecurringTask,
   UpdateRecurringTaskInput,
 } from "@/types/recurring-task";
+import { toUserMessage } from "@/utils/error-message";
 
 export function useRecurringTasks() {
   const [recurringTasks, setRecurringTasks] = useState<RecurringTask[]>([]);
@@ -41,7 +42,7 @@ export function useRecurringTasks() {
       hasLoadedRef.current = true;
     } catch (err) {
       if (loadId !== loadIdRef.current) return;
-      setError(err instanceof Error ? err.message : "Erro ao carregar rotinas.");
+      setError(toUserMessage(err, "Erro ao carregar rotinas."));
     } finally {
       if (loadId === loadIdRef.current) {
         setLoading(false);

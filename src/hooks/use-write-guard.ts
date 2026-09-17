@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 
+import { toUserMessage } from "@/utils/error-message";
+
 type WriteAction<T> = () => Promise<T>;
 
 /**
@@ -19,7 +21,7 @@ export function useWriteGuard() {
       try {
         return await action();
       } catch (err) {
-        setError(err instanceof Error ? err.message : fallbackMessage);
+        setError(toUserMessage(err, fallbackMessage));
         return null;
       }
     },

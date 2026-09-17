@@ -22,7 +22,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         await getDatabase();
         await hydrateSettingsCache();
       } catch (err) {
-        console.error("[database] Falha ao iniciar:", err);
+        if (__DEV__) {
+          console.error("[database] Falha ao iniciar:", err);
+        }
       } finally {
         if (mounted) setReady(true);
       }

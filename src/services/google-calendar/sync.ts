@@ -50,9 +50,19 @@ function mapGoogleEventToTaskInput(
 
   if (event.start.dateTime) {
     const start = new Date(event.start.dateTime);
+    // Data inválida vira NaN silencioso e chegaria ao INSERT como
+    // "NaN-NaN-NaN": melhor descartar o evento.
+    if (Number.isNaN(start.getTime())) {
+      return null;
+    }
+
     date = formatDateKey(start);
     notifyAt = formatTime(start.getHours(), start.getMinutes());
   } else if (event.start.date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(event.start.date)) {
+      return null;
+    }
+
     date = event.start.date;
     notifyAt = "09:00";
   } else {

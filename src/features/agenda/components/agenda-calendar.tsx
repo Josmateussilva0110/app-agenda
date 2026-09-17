@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 
 import { useTheme } from "@/context/theme.context";
 import {
-  addMonths,
+  formatDateKey,
+  formatDayMonth,
   formatMonthYear,
   getCalendarDays,
   isSameDay,
@@ -15,50 +16,58 @@ import {
 type AgendaCalendarProps = {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
+  visibleMonth: Date;
+  onPreviousMonth: () => void;
+  onNextMonth: () => void;
+  /** Dias com tarefa pendente, por chave `YYYY-MM-DD`. */
+  markers: Set<string>;
 };
 
-export function AgendaCalendar({
+function describeDay(day: Date, hasPending: boolean): string {
+  const date = formatDayMonth(day);
+  return hasPending ? `${date}, tem tarefa pendente` : date;
+}
+
+/**
+ * Memoizado porque todas as props são estáveis: as três ações são `useCallback`
+ * com dependências vazias em `use-selected-date`, `visibleMonth` só ganha
+ * objeto novo quando o mês muda de fato, e `markers` mantém a identidade
+ * enquanto as datas forem as mesmas. Sem essa estabilidade o memo não seguraria
+ * nada — os dois andam juntos.
+ */
+export const AgendaCalendar = memo(function AgendaCalendar({
   selectedDate,
   onSelectDate,
+  visibleMonth,
+  onPreviousMonth,
+  onNextMonth,
+  markers,
 }: AgendaCalendarProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [visibleMonth, setVisibleMonth] = useState(
-    () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
-  );
-
-  useEffect(() => {
-    // Só troca quando o mês muda de verdade. Antes, qualquer toque em dia criava
-    // um `Date` novo, invalidava o `useMemo` da grade e remontava as 42 células
-    // para mostrar exatamente o mesmo mês.
-    setVisibleMonth((current) =>
-      current.getFullYear() === selectedDate.getFullYear() &&
-      current.getMonth() === selectedDate.getMonth()
-        ? current
-        : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
-    );
-  }, [selectedDate]);
 
   const month = visibleMonth;
   const days = useMemo(() => getCalendarDays(month), [month]);
-
-  const goToPreviousMonth = () => {
-    setVisibleMonth(addMonths(month, -1));
-  };
-
-  const goToNextMonth = () => {
-    setVisibleMonth(addMonths(month, 1));
-  };
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.monthLabel}>{formatMonthYear(month)}</Text>
         <View style={styles.nav}>
-          <Pressable onPress={goToPreviousMonth} style={styles.navButton}>
+          <Pressable
+            onPress={onPreviousMonth}
+            style={styles.navButton}
+            accessibilityRole="button"
+            accessibilityLabel="Mês anterior"
+          >
             <ChevronLeft size={18} color={colors.textSecondary} />
           </Pressable>
-          <Pressable onPress={goToNextMonth} style={styles.navButton}>
+          <Pressable
+            onPress={onNextMonth}
+            style={styles.navButton}
+            accessibilityRole="button"
+            accessibilityLabel="Próximo mês"
+          >
             <ChevronRight size={18} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -80,13 +89,19 @@ export function AgendaCalendar({
 
           const selected = isSameDay(day, selectedDate);
           const today = isToday(day);
-          const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+          // Mesma função que gera a chave no banco: o marcador é buscado por
+          // ela, então os dois formatos têm que vir do mesmo lugar.
+          const dateKey = formatDateKey(day);
+          const hasPending = markers.has(dateKey);
 
           return (
             <Pressable
               key={dateKey}
               onPress={() => onSelectDate(day)}
               style={styles.dayCell}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={describeDay(day, hasPending)}
             >
               <View
                 style={[
@@ -103,6 +118,15 @@ export function AgendaCalendar({
                 >
                   {day.getDate()}
                 </Text>
+
+                {hasPending ? (
+                  <View
+                    style={[
+                      styles.marker,
+                      selected && styles.markerSelected,
+                    ]}
+                  />
+                ) : null}
               </View>
             </Pressable>
           );
@@ -110,7 +134,7 @@ export function AgendaCalendar({
       </View>
     </View>
   );
-}
+});
 
 const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
   StyleSheet.create({
@@ -186,6 +210,21 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       fontSize: 14,
       fontWeight: "600",
       color: colors.text,
+    },
+    // O ponto fica dentro do badge: a célula tem ~41px e o badge 34px, então
+    // não há espaço útil abaixo dele.
+    marker: {
+      position: "absolute",
+      bottom: 3,
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.primary,
+    },
+    // `calendarSelected` é a mesma cor de `primary` nos dois temas: sobre o dia
+    // selecionado o ponto precisa da cor do texto, senão desaparece no fundo.
+    markerSelected: {
+      backgroundColor: colors.calendarSelectedText,
     },
     dayTextSelected: {
       color: colors.calendarSelectedText,

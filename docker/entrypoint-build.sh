@@ -85,6 +85,20 @@ if [ "$NEEDS_PREBUILD" = true ]; then
   echo "$CONFIG_HASH" > "$ANDROID_DIR/.build-config-hash"
 fi
 
+# Trava: o app guarda dados do usuário em SQLCipher, e um valor corrompido aqui
+# faz o Gradle compilar SQLite comum sem erro nenhum. Falhar o build é melhor
+# que publicar um APK com o banco em texto puro.
+assert_sqlcipher_enabled() {
+  if ! grep -qx "expo.sqlite.useSQLCipher=true" "$GRADLE_PROPS"; then
+    echo ""
+    echo "❌ expo.sqlite.useSQLCipher não está exatamente 'true' em $GRADLE_PROPS:"
+    grep -n "useSQLCipher" "$GRADLE_PROPS" || echo "   (propriedade ausente)"
+    echo "   O banco sairia em texto puro. Build interrompido."
+    exit 1
+  fi
+  echo "🔐 SQLCipher habilitado."
+}
+
 echo "🔧 Configurando Android SDK..."
 mkdir -p android
 echo "sdk.dir=${ANDROID_HOME}" > android/local.properties
@@ -92,10 +106,22 @@ echo "sdk.dir=${ANDROID_HOME}" > android/local.properties
 GRADLE_PROPS="android/gradle.properties"
 touch "$GRADLE_PROPS"
 
+# O expo prebuild escreve gradle.properties SEM newline no fim. Sem isto, a
+# primeira propriedade anexada gruda na última linha existente — foi assim que
+# `expo.sqlite.useSQLCipher=true` virou `...=trueorg.gradle.caching=true` e o
+# SQLCipher deixou de ser compilado, silenciosamente.
+ensure_trailing_newline() {
+  local file=$1
+  if [ -s "$file" ] && [ -n "$(tail -c1 "$file")" ]; then
+    echo "" >> "$file"
+  fi
+}
+
 append_gradle_prop() {
   local key=$1
   local value=$2
   if ! grep -q "^${key}=" "$GRADLE_PROPS" 2>/dev/null; then
+    ensure_trailing_newline "$GRADLE_PROPS"
     echo "${key}=${value}" >> "$GRADLE_PROPS"
   fi
 }
@@ -104,6 +130,8 @@ append_gradle_prop "org.gradle.parallel" "true"
 append_gradle_prop "org.gradle.caching" "true"
 append_gradle_prop "org.gradle.configureondemand" "true"
 append_gradle_prop "org.gradle.jvmargs" "-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+
+assert_sqlcipher_enabled
 
 echo "🔢 Sincronizando versão no projeto Android..."
 node scripts/sync-android-version.js

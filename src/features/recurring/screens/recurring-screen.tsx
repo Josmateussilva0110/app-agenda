@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { captureRef } from "react-native-view-shot";
+import { captureRef, releaseCapture } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 
 import { AgendaFab } from "@/features/agenda/components/agenda-fab";
@@ -78,6 +78,9 @@ export function RecurringScreen() {
     if (exporting) return;
     setExporting(true);
     setPreparingExport(true);
+    // O PNG da matriz é a rotina inteira em claro, fora do banco cifrado: ele
+    // não pode ficar no cache do app depois que o compartilhamento termina.
+    let capturedUri: string | null = null;
 
     try {
       await waitForExportView();
@@ -87,6 +90,7 @@ export function RecurringScreen() {
         quality: 1,
         result: "tmpfile",
       });
+      capturedUri = uri;
 
       const available = await Sharing.isAvailableAsync();
       if (!available) {
@@ -104,6 +108,10 @@ export function RecurringScreen() {
     } catch {
       Alert.alert("Erro", "Não foi possível gerar a imagem do mural.");
     } finally {
+      if (capturedUri) {
+        releaseCapture(capturedUri);
+      }
+
       setPreparingExport(false);
       setExporting(false);
     }
