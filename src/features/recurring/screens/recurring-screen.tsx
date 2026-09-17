@@ -123,12 +123,12 @@ export function RecurringScreen() {
       </Text>
 
       <View style={styles.matrixCard}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={colors.primary} />
           </View>
-        ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
         ) : (
           <RecurringMatrix recurringTasks={recurringTasks} onPressTask={openEditModal} />
         )}
@@ -248,6 +248,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       color: colors.error,
       fontSize: 14,
       marginTop: 16,
+      marginBottom: 12,
     },
     exportHidden: {
       position: "absolute",

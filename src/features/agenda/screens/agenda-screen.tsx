@@ -66,22 +66,52 @@ export function AgendaScreen() {
     return grouped;
   }, [tasks]);
 
-  const handleCreateTask = async (input: Parameters<typeof addTask>[0]) => {
-    await addTask(input);
-  };
+  const handleCreateTask = useCallback(
+    (input: Parameters<typeof addTask>[0]) => addTask(input),
+    [addTask]
+  );
 
-  const handleRemoveTask = async (taskId: string) => {
-    await removeTask(taskId);
-  };
+  const handleRemoveTask = useCallback(
+    async (taskId: string) => {
+      await removeTask(taskId);
+    },
+    [removeTask]
+  );
 
-  const handleToggleComplete = async (taskId: string) => {
-    await toggleTaskComplete(taskId);
-  };
+  const handleToggleComplete = useCallback(
+    async (taskId: string) => {
+      await toggleTaskComplete(taskId);
+    },
+    [toggleTaskComplete]
+  );
 
-  const handleGoogleSync = async () => {
-    await syncGoogle(selectedDateKey);
+  // connect/sync relançam de propósito: o hook já traduziu o motivo para
+  // `googleError`, e o painel é quem mostra. Aqui só evitamos a rejeição solta.
+  const handleGoogleConnect = useCallback(async () => {
+    try {
+      await connectGoogle();
+    } catch {
+      return;
+    }
+  }, [connectGoogle]);
+
+  const handleGoogleDisconnect = useCallback(async () => {
+    try {
+      await disconnectGoogle();
+    } catch {
+      return;
+    }
+  }, [disconnectGoogle]);
+
+  const handleGoogleSync = useCallback(async () => {
+    try {
+      await syncGoogle(selectedDateKey);
+    } catch {
+      return;
+    }
+
     await refresh();
-  };
+  }, [refresh, selectedDateKey, syncGoogle]);
 
   const googleLastMessage = googleLastResult
     ? `${googleLastResult.imported} importado(s), ${googleLastResult.exported} exportado(s), ${googleLastResult.updated} atualizado(s).`
@@ -94,7 +124,7 @@ export function AgendaScreen() {
       syncing={googleSyncing}
       error={googleError}
       lastMessage={googleLastMessage}
-      onConnect={connectGoogle}
+      onConnect={handleGoogleConnect}
       onSync={handleGoogleSync}
     />
   );
@@ -126,7 +156,7 @@ export function AgendaScreen() {
             {googleConnected && googleAccount ? (
               <GoogleAccountButton
                 account={googleAccount}
-                onDisconnect={disconnectGoogle}
+                onDisconnect={handleGoogleDisconnect}
               />
             ) : null}
           </View>
@@ -152,12 +182,12 @@ export function AgendaScreen() {
           </Text>
         </View>
 
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={colors.primary} />
           </View>
-        ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
         ) : (
           <View style={styles.periods}>
             {TASK_PERIODS.map((period) => (
@@ -255,5 +285,6 @@ const createStyles = (
     errorText: {
       color: colors.error,
       fontSize: 14,
+      marginBottom: 12,
     },
   });

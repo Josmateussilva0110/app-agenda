@@ -37,7 +37,7 @@ import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { requestNotificationPermissions } from "@/services/notifications/task-notifications.service";
 import { settingsStorage } from "@/storage/settings.storage";
 import { DEFAULT_GOOGLE_REMINDER_MINUTES, GOOGLE_REMINDER_MINUTES_OPTIONS } from "@/constants/google-calendar";
-import type { CreateTaskInput } from "@/types/task";
+import type { CreateTaskInput, Task } from "@/types/task";
 import { clampTimeToPeriod, DEFAULT_PERIOD_TIME, normalizeTimeInput } from "@/utils/task-time";
 
 const SHEET_OFFSET = 420;
@@ -56,7 +56,7 @@ type NewTaskModalProps = {
   date: string;
   googleConnected: boolean;
   onClose: () => void;
-  onSubmit: (input: CreateTaskInput) => Promise<void>;
+  onSubmit: (input: CreateTaskInput) => Promise<Task | null>;
 };
 
 function getDefaultFormValues(): NewTaskFormValues {
@@ -89,6 +89,7 @@ export function NewTaskModal({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const bottomInset = Math.max(insets.bottom, 12);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(visible);
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const { height: keyboardHeight, readCurrentHeight } = useKeyboardInset(visible);
@@ -199,6 +200,7 @@ export function NewTaskModal({
   useEffect(() => {
     if (visible) {
       setMounted(true);
+      setSubmitError(null);
       backdropOpacity.value = withTiming(1, {
         duration: 240,
         easing: Easing.out(Easing.cubic),
@@ -277,6 +279,7 @@ export function NewTaskModal({
 
   const submit = handleSubmit(async (values) => {
     setSubmitting(true);
+    setSubmitError(null);
 
     try {
       let shouldNotify = values.notify;
@@ -285,7 +288,7 @@ export function NewTaskModal({
         shouldNotify = granted;
       }
 
-      await onSubmit({
+      const created = await onSubmit({
         title: values.title,
         date,
         period: values.period,
@@ -297,6 +300,11 @@ export function NewTaskModal({
             ? values.googleReminderMinutes
             : null,
       });
+
+      if (!created) {
+        setSubmitError("Não foi possível salvar a tarefa. Tente novamente.");
+        return;
+      }
 
       if (shouldNotify && googleConnected) {
         await settingsStorage.setGoogleCalendarSyncEnabled(values.googleCalendarSync);
@@ -510,6 +518,10 @@ export function NewTaskModal({
                   </View>
                 ) : null}
 
+                {submitError ? (
+                  <Text style={styles.submitErrorText}>{submitError}</Text>
+                ) : null}
+
                 <Pressable
                   onPress={() => void submit()}
                   disabled={!isValid || submitting}
@@ -521,7 +533,14 @@ export function NewTaskModal({
                   {submitting ? (
                     <ActivityIndicator color={colors.onPrimary} />
                   ) : (
-                    <Text style={styles.submitText}>Adicionar à agenda</Text>
+                    <Text
+                      style={[
+                        styles.submitText,
+                        !isValid && styles.submitTextDisabled,
+                      ]}
+                    >
+                      Adicionar à agenda
+                    </Text>
                   )}
                 </Pressable>
 
@@ -661,7 +680,10 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       minHeight: 54,
     },
     submitButtonDisabled: {
-      backgroundColor: "#94A3B8",
+      backgroundColor: colors.buttonDisabled,
+    },
+    submitTextDisabled: {
+      color: colors.onButtonDisabled,
     },
     submitText: {
       fontSize: 16,
@@ -672,5 +694,11 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       fontSize: 12,
       color: colors.error,
       marginTop: -8,
+    },
+    submitErrorText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.error,
+      textAlign: "center",
     },
   });

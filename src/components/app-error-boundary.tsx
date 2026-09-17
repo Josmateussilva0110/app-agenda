@@ -1,6 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { Colors } from "@/constants/theme";
+
 type Props = {
   children: ReactNode;
 };
@@ -34,23 +36,25 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 }
 
+// Esta tela roda acima do ThemeProvider, então não há hook de tema para ler:
+// a paleta clara é fixada aqui de propósito.
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.light.background,
   },
   title: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#0F172A",
+    color: Colors.light.text,
     marginBottom: 8,
   },
   message: {
     fontSize: 14,
-    color: "#64748B",
+    color: Colors.light.textSecondary,
     textAlign: "center",
   },
 });

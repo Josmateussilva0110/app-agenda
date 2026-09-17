@@ -171,6 +171,8 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       width: 16,
       height: 16,
       borderRadius: 8,
+      // Branco e azul do Google: cor de marca, fixa nos dois temas por exigência
+      // das diretrizes de identidade deles.
       backgroundColor: "#FFFFFF",
       borderWidth: 1,
       borderColor: colors.border,
@@ -196,7 +198,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.card,
-      shadowColor: "#0F172A",
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.12,
       shadowRadius: 16,

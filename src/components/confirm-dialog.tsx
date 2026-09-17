@@ -74,7 +74,7 @@ export function ConfirmDialog({
             >
               {loading ? (
                 <ActivityIndicator
-                  color={destructive ? "#FFFFFF" : colors.onPrimary}
+                  color={destructive ? colors.onDanger : colors.onPrimary}
                   size="small"
                 />
               ) : (
@@ -160,7 +160,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     destructiveButtonText: {
       fontSize: 15,
       fontWeight: "700",
-      color: "#FFFFFF",
+      color: colors.onDanger,
     },
     buttonDisabled: {
       opacity: 0.7,

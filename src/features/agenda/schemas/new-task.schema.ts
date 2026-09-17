@@ -1,15 +1,9 @@
 import { z } from "zod";
 
-import {
-  TASK_DESCRIPTION_MAX_LENGTH,
-  TASK_TITLE_MAX_LENGTH,
-} from "@/constants/validation";
+import { TASK_TITLE_MAX_LENGTH } from "@/constants/validation";
 import { TASK_PERIODS } from "@/types/task";
 import { isTimeInPeriod, isValidTime } from "@/utils/task-time";
-import {
-  DEFAULT_GOOGLE_REMINDER_MINUTES,
-  GOOGLE_REMINDER_MINUTES_OPTIONS,
-} from "@/constants/google-calendar";
+import { GOOGLE_REMINDER_MINUTES_OPTIONS } from "@/constants/google-calendar";
 
 const googleReminderMinutesSchema = z
   .number()

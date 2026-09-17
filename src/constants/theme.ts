@@ -37,6 +37,10 @@ export const Colors = {
     success: "#16A34A",
     warning: "#D97706",
     danger: "#DC2626",
+    onDanger: "#FFFFFF",
+    buttonDisabled: "#CBD5E1",
+    onButtonDisabled: "#475569",
+    shadow: NAVY,
   },
   dark: {
     text: "#F8FAFC",
@@ -71,6 +75,11 @@ export const Colors = {
     success: "#4ADE80",
     warning: "#FBBF24",
     danger: "#F87171",
+    // Vermelho claro no escuro: texto escuro é o que tem contraste em cima dele.
+    onDanger: NAVY,
+    buttonDisabled: "#334155",
+    onButtonDisabled: "#94A3B8",
+    shadow: "#000000",
   },
 } as const;
 

@@ -47,7 +47,7 @@ export function addMonths(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1);
 }
 
-export function getCalendarDays(month: Date): Array<Date | null> {
+export function getCalendarDays(month: Date): (Date | null)[] {
   const firstDay = startOfMonth(month);
   const startWeekday = firstDay.getDay();
   const daysInMonth = new Date(
@@ -56,7 +56,7 @@ export function getCalendarDays(month: Date): Array<Date | null> {
     0
   ).getDate();
 
-  const cells: Array<Date | null> = [];
+  const cells: (Date | null)[] = [];
 
   for (let i = 0; i < startWeekday; i += 1) {
     cells.push(null);

@@ -53,9 +53,12 @@ type NewRecurringTaskModalProps = {
   visible: boolean;
   recurringTask: RecurringTask | null;
   onClose: () => void;
-  onSubmit: (input: CreateRecurringTaskInput) => Promise<unknown>;
-  onUpdate: (id: string, input: UpdateRecurringTaskInput) => Promise<unknown>;
-  onDelete: (id: string) => Promise<unknown>;
+  onSubmit: (input: CreateRecurringTaskInput) => Promise<RecurringTask | null>;
+  onUpdate: (
+    id: string,
+    input: UpdateRecurringTaskInput
+  ) => Promise<RecurringTask | null>;
+  onDelete: (id: string) => Promise<boolean>;
 };
 
 function defaultValues(recurringTask: RecurringTask | null): FormValues {
@@ -88,6 +91,7 @@ export function NewRecurringTaskModal({
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mounted, setMounted] = useState(visible);
@@ -163,6 +167,7 @@ export function NewRecurringTaskModal({
   useEffect(() => {
     if (visible) {
       reset(defaultValues(recurringTask));
+      setSubmitError(null);
     }
   }, [recurringTask, reset, visible]);
 
@@ -173,6 +178,7 @@ export function NewRecurringTaskModal({
 
   const submit = handleSubmit(async (values) => {
     setSubmitting(true);
+    setSubmitError(null);
 
     try {
       const time = normalizeTimeInput(values.time);
@@ -183,20 +189,23 @@ export function NewRecurringTaskModal({
         notify = await requestNotificationPermissions();
       }
 
-      if (isEditing) {
-        await onUpdate(recurringTask.id, {
-          title: values.title,
-          time,
-          weekdays,
-          notify,
-        });
-      } else {
-        await onSubmit({
-          title: values.title,
-          time,
-          weekdays,
-          notify,
-        });
+      const saved = isEditing
+        ? await onUpdate(recurringTask.id, {
+            title: values.title,
+            time,
+            weekdays,
+            notify,
+          })
+        : await onSubmit({
+            title: values.title,
+            time,
+            weekdays,
+            notify,
+          });
+
+      if (!saved) {
+        setSubmitError("Não foi possível salvar a rotina. Tente novamente.");
+        return;
       }
 
       onClose();
@@ -210,8 +219,14 @@ export function NewRecurringTaskModal({
     setDeleting(true);
 
     try {
-      await onDelete(recurringTask.id);
+      const removed = await onDelete(recurringTask.id);
       setConfirmDeleteVisible(false);
+
+      if (!removed) {
+        setSubmitError("Não foi possível excluir a rotina. Tente novamente.");
+        return;
+      }
+
       onClose();
     } finally {
       setDeleting(false);
@@ -363,6 +378,10 @@ export function NewRecurringTaskModal({
               </View>
             ) : null}
 
+            {submitError ? (
+              <Text style={styles.submitErrorText}>{submitError}</Text>
+            ) : null}
+
             <Pressable
               onPress={() => void submit()}
               disabled={!isValid || submitting}
@@ -375,7 +394,9 @@ export function NewRecurringTaskModal({
               {submitting ? (
                 <ActivityIndicator color={colors.onPrimary} />
               ) : (
-                <Text style={styles.submitText}>
+                <Text
+                  style={[styles.submitText, !isValid && styles.submitTextDisabled]}
+                >
                   {isEditing ? "Salvar alterações" : "Adicionar ao mural"}
                 </Text>
               )}
@@ -541,7 +562,10 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       minHeight: 54,
     },
     submitButtonDisabled: {
-      backgroundColor: "#94A3B8",
+      backgroundColor: colors.buttonDisabled,
+    },
+    submitTextDisabled: {
+      color: colors.onButtonDisabled,
     },
     submitButtonPressed: {
       opacity: 0.85,
@@ -551,6 +575,12 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       fontSize: 16,
       fontWeight: "700",
       color: colors.onPrimary,
+    },
+    submitErrorText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.error,
+      textAlign: "center",
     },
     deleteButton: {
       flexDirection: "row",
