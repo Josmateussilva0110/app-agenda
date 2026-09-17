@@ -27,6 +27,13 @@ export function formatDayMonth(date: Date): string {
   return `${day} de ${month}`;
 }
 
+/** "16 set" — para o badge do mural, onde a forma por extenso não cabe. */
+export function formatDayMonthShort(date: Date): string {
+  const day = date.getDate();
+  const month = MONTHS[date.getMonth()].slice(0, 3);
+  return `${day} ${month}`;
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&

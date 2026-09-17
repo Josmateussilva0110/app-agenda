@@ -19,7 +19,7 @@ import { RecurringMatrixExportView } from "@/features/recurring/components/recur
 import { useRecurringTasks } from "@/hooks/use-recurring-tasks";
 import { useTheme } from "@/context/theme.context";
 import type { RecurringTask } from "@/types/recurring-task";
-import { formatDayMonth } from "@/utils/date";
+import { formatDayMonthShort } from "@/utils/date";
 
 export function RecurringScreen() {
   const { colors } = useTheme();
@@ -114,7 +114,7 @@ export function RecurringScreen() {
       <View style={styles.headerRow}>
         <View style={styles.headerTextBlock}>
           <Text style={styles.todayLabel}>Mural</Text>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={2}>
             Rotina Semanal
           </Text>
         </View>
@@ -139,7 +139,9 @@ export function RecurringScreen() {
 
           <View style={styles.dateBadge}>
             <CalendarDays size={14} color={colors.primary} />
-            <Text style={styles.dateBadgeText}>{formatDayMonth(new Date())}</Text>
+            <Text style={styles.dateBadgeText}>
+              {formatDayMonthShort(new Date())}
+            </Text>
           </View>
         </View>
       </View>
@@ -218,10 +220,12 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       color: colors.textMuted,
     },
     title: {
-      fontSize: 26,
+      // Menor que o título da agenda: aqui o nome divide a linha com o botão de
+      // compartilhar e o badge da data, e a 26 não cabia inteiro.
+      fontSize: 22,
       fontWeight: "800",
       color: colors.text,
-      letterSpacing: -0.6,
+      letterSpacing: -0.4,
       marginTop: 4,
     },
     iconButton: {

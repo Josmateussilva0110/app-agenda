@@ -40,7 +40,12 @@ CONFIG_HASH=$(
       /app/app.config.js \
       /app/babel.config.js \
       /app/package.json \
-      /app/package-lock.json 2>/dev/null \
+      /app/package-lock.json \
+      /app/assets/images/icon.png \
+      /app/assets/images/android-icon-foreground.png \
+      /app/assets/images/android-icon-monochrome.png \
+      /app/assets/images/notification-icon.png \
+      /app/assets/images/splash-icon.png 2>/dev/null \
     | sha256sum | cut -d' ' -f1
 )
 CACHED_HASH=""
