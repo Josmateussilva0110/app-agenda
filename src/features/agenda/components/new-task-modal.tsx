@@ -307,10 +307,13 @@ export function NewTaskModal({
       }
 
       if (shouldNotify && googleConnected) {
-        await settingsStorage.setGoogleCalendarSyncEnabled(values.googleCalendarSync);
-        await settingsStorage.setGoogleCalendarReminderMinutes(
-          values.googleReminderMinutes
-        );
+        // Independentes entre si: não há motivo para somar as duas latências.
+        await Promise.all([
+          settingsStorage.setGoogleCalendarSyncEnabled(values.googleCalendarSync),
+          settingsStorage.setGoogleCalendarReminderMinutes(
+            values.googleReminderMinutes
+          ),
+        ]);
       }
       onClose();
     } finally {

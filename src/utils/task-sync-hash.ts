@@ -6,7 +6,19 @@ function getLocalTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-export function buildGoogleCalendarSyncHash(task: Task): string | null {
+/**
+ * Os campos que descrevem o evento no Google. Recebe esse subconjunto, e não a
+ * `Task` inteira, para o hash poder ser calculado na criação — antes de a linha
+ * existir no banco.
+ */
+export type GoogleCalendarSyncHashInput = Pick<
+  Task,
+  "title" | "description" | "date" | "notifyAt" | "googleReminderMinutes"
+>;
+
+export function buildGoogleCalendarSyncHash(
+  task: GoogleCalendarSyncHashInput
+): string | null {
   if (!task.notifyAt) {
     return null;
   }

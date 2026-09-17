@@ -35,7 +35,12 @@ export function RecurringScreen() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // A matriz de exportação só existe enquanto a foto é tirada. Montada o tempo
+  // todo, ela construía uma segunda grade completa a cada render desta tela e
+  // ficava residente em memória com o usuário em outra aba.
+  const [preparingExport, setPreparingExport] = useState(false);
   const exportViewRef = useRef<View>(null);
+  const exportLayoutRef = useRef<(() => void) | null>(null);
   const editingTask = useMemo(
     () => recurringTasks.find((task) => task.id === editingTaskId) ?? null,
     [editingTaskId, recurringTasks]
@@ -51,11 +56,32 @@ export function RecurringScreen() {
     setModalOpen(true);
   };
 
+  // Espera a view escondida existir de fato: o `onLayout` diz que ela já foi
+  // medida, e o frame extra garante que o nativo desenhou antes da captura.
+  // Sem isso o `captureRef` pode fotografar uma árvore ainda sem tamanho.
+  const waitForExportView = () =>
+    new Promise<void>((resolve) => {
+      let settled = false;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        exportLayoutRef.current = null;
+        requestAnimationFrame(() => resolve());
+      };
+
+      exportLayoutRef.current = finish;
+      setTimeout(finish, 400);
+    });
+
   const handleShare = async () => {
     if (exporting) return;
     setExporting(true);
+    setPreparingExport(true);
 
     try {
+      await waitForExportView();
+
       const uri = await captureRef(exportViewRef, {
         format: "png",
         quality: 1,
@@ -78,6 +104,7 @@ export function RecurringScreen() {
     } catch {
       Alert.alert("Erro", "Não foi possível gerar a imagem do mural.");
     } finally {
+      setPreparingExport(false);
       setExporting(false);
     }
   };
@@ -136,12 +163,18 @@ export function RecurringScreen() {
 
       <AgendaFab onPress={openCreateModal} />
 
-      <View style={styles.exportHidden} pointerEvents="none">
-        <RecurringMatrixExportView
-          ref={exportViewRef}
-          recurringTasks={recurringTasks}
-        />
-      </View>
+      {preparingExport ? (
+        <View
+          style={styles.exportHidden}
+          pointerEvents="none"
+          onLayout={() => exportLayoutRef.current?.()}
+        >
+          <RecurringMatrixExportView
+            ref={exportViewRef}
+            recurringTasks={recurringTasks}
+          />
+        </View>
+      ) : null}
 
       <NewRecurringTaskModal
         visible={modalOpen}

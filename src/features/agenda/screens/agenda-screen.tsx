@@ -114,7 +114,10 @@ export function AgendaScreen() {
   }, [refresh, selectedDateKey, syncGoogle]);
 
   const googleLastMessage = googleLastResult
-    ? `${googleLastResult.imported} importado(s), ${googleLastResult.exported} exportado(s), ${googleLastResult.updated} atualizado(s).`
+    ? `${googleLastResult.imported} importado(s), ${googleLastResult.exported} exportado(s), ${googleLastResult.updated} atualizado(s).` +
+      (googleLastResult.failed > 0
+        ? ` ${googleLastResult.failed} não sincronizou(ram).`
+        : "")
     : null;
 
   const googleSyncPanel = (

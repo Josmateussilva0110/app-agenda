@@ -12,11 +12,28 @@ import { buildNotifyDate } from "@/utils/task-time";
 
 const TASK_REMINDER_CHANNEL_ID = "task-reminders";
 
+// O canal é o mesmo durante toda a sessão e criá-lo é uma ida ao módulo
+// nativo. Guardar a promessa evita repetir a chamada a cada agendamento — na
+// criação de uma tarefa ela acontecia duas vezes.
+let channelPromise: Promise<void> | null = null;
+
 async function ensureNotificationChannel(
   Notifications: NotificationsModule
 ): Promise<void> {
   if (Platform.OS !== "android") return;
 
+  channelPromise ??= createChannel(Notifications).catch((error: unknown) => {
+    // Falhou: esquece a promessa para a próxima tentativa refazer a chamada.
+    channelPromise = null;
+    throw error;
+  });
+
+  await channelPromise;
+}
+
+async function createChannel(
+  Notifications: NotificationsModule
+): Promise<void> {
   await Notifications.setNotificationChannelAsync(TASK_REMINDER_CHANNEL_ID, {
     name: "Lembretes de tarefas",
     description: "Avisos no horário das suas tarefas",

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  PixelRatio,
   Pressable,
   StyleSheet,
   Text,
@@ -23,6 +24,16 @@ type MenuPosition = {
   top: number;
   right: number;
 };
+
+/**
+ * A foto do Google vem num tamanho fixo (o sufixo `=sNNN-c` da URL) e é
+ * decodificada na resolução original, não na que a tela usa. Pedir o tamanho
+ * certo é trocar um bitmap grande por um do tamanho do avatar.
+ */
+function sizedPhotoUrl(photoUrl: string, sizeDp: number): string {
+  const sizePx = PixelRatio.getPixelSizeForLayoutSize(sizeDp);
+  return photoUrl.replace(/=s\d+(-c)?$/, `=s${sizePx}$1`);
+}
 
 export function GoogleAccountButton({
   account,
@@ -73,7 +84,10 @@ export function GoogleAccountButton({
         accessibilityHint="Toque para abrir o menu da conta"
       >
         {account.photoUrl ? (
-          <Image source={{ uri: account.photoUrl }} style={styles.avatar} />
+          <Image
+            source={{ uri: sizedPhotoUrl(account.photoUrl, 40) }}
+            style={styles.avatar}
+          />
         ) : (
           <View style={styles.avatarFallback}>
             <UserRound size={18} color={colors.textSecondary} />
@@ -101,7 +115,10 @@ export function GoogleAccountButton({
           >
             <View style={styles.menuHeader}>
               {account.photoUrl ? (
-                <Image source={{ uri: account.photoUrl }} style={styles.menuAvatar} />
+                <Image
+                  source={{ uri: sizedPhotoUrl(account.photoUrl, 36) }}
+                  style={styles.menuAvatar}
+                />
               ) : (
                 <View style={styles.menuAvatarFallback}>
                   <UserRound size={16} color={colors.textSecondary} />

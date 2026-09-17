@@ -12,11 +12,27 @@ import { parseTime } from "@/utils/task-time";
 
 const ROUTINE_REMINDER_CHANNEL_ID = "routine-reminders";
 
+// O canal é o mesmo durante toda a sessão e criá-lo é uma ida ao módulo
+// nativo. Guardar a promessa evita refazer a chamada a cada agendamento.
+let channelPromise: Promise<void> | null = null;
+
 async function ensureRoutineNotificationChannel(
   Notifications: NotificationsModule
 ): Promise<void> {
   if (Platform.OS !== "android") return;
 
+  channelPromise ??= createChannel(Notifications).catch((error: unknown) => {
+    // Falhou: esquece a promessa para a próxima tentativa refazer a chamada.
+    channelPromise = null;
+    throw error;
+  });
+
+  await channelPromise;
+}
+
+async function createChannel(
+  Notifications: NotificationsModule
+): Promise<void> {
   await Notifications.setNotificationChannelAsync(ROUTINE_REMINDER_CHANNEL_ID, {
     name: "Lembretes de rotina",
     description: "Avisos no horário das rotinas do mural",

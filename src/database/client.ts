@@ -10,10 +10,30 @@ import { SCHEMA_STATEMENTS, DATABASE_NAME } from "@/database/schema";
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
+/**
+ * A posição na lista é a chave da migração: `user_version` guarda quantos
+ * statements já foram aplicados, e só o que vier depois roda. Por isso
+ * `SCHEMA_STATEMENTS` é append-only — remover ou reordenar um statement
+ * dessincroniza o contador de todo aparelho instalado.
+ *
+ * Antes daqui a lista inteira era reexecutada a cada abertura. Isso custava 16
+ * execuções (7 delas lançando "duplicate column name" só para serem engolidas)
+ * e, pior, transformava um `UPDATE` de migração em regra permanente, que
+ * remarcava a sincronização com o Google a cada boot.
+ */
 async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
-  for (const statement of SCHEMA_STATEMENTS) {
+  const row = await db.getFirstAsync<{ user_version: number }>(
+    "PRAGMA user_version"
+  );
+  const applied = row?.user_version ?? 0;
+
+  if (applied >= SCHEMA_STATEMENTS.length) {
+    return;
+  }
+
+  for (let index = applied; index < SCHEMA_STATEMENTS.length; index += 1) {
     try {
-      await db.execAsync(statement);
+      await db.execAsync(SCHEMA_STATEMENTS[index]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (!message.includes("duplicate column name")) {
@@ -21,6 +41,10 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
       }
     }
   }
+
+  // `PRAGMA` não aceita parâmetro; o valor é o tamanho da nossa própria lista,
+  // nunca entrada externa.
+  await db.execAsync(`PRAGMA user_version = ${SCHEMA_STATEMENTS.length}`);
 }
 
 async function verifyDatabaseAccess(db: SQLite.SQLiteDatabase): Promise<void> {

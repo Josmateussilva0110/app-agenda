@@ -22,6 +22,8 @@ export type GoogleCalendarSyncResult = {
   imported: number;
   exported: number;
   updated: number;
+  /** Tarefas que o Google recusou; as demais do lote seguiram normalmente. */
+  failed: number;
 };
 
 export type GoogleAccountProfile = {

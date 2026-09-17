@@ -28,8 +28,14 @@ export function AgendaCalendar({
   );
 
   useEffect(() => {
-    setVisibleMonth(
-      new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
+    // Só troca quando o mês muda de verdade. Antes, qualquer toque em dia criava
+    // um `Date` novo, invalidava o `useMemo` da grade e remontava as 42 células
+    // para mostrar exatamente o mesmo mês.
+    setVisibleMonth((current) =>
+      current.getFullYear() === selectedDate.getFullYear() &&
+      current.getMonth() === selectedDate.getMonth()
+        ? current
+        : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
     );
   }, [selectedDate]);
 

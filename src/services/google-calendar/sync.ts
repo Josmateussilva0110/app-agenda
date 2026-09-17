@@ -4,10 +4,12 @@ import {
   truncateText,
 } from "@/constants/validation";
 import {
-  createTask,
+  createTasks,
   listExistingGoogleEventIds,
   listTasksInDateRange,
   setTaskGoogleSyncState,
+  setTasksGoogleSyncState,
+  type TaskGoogleSyncState,
 } from "@/database/repositories/tasks.repository";
 import {
   createPrimaryCalendarEvent,
@@ -122,34 +124,67 @@ async function persistGoogleSyncState(
   await setTaskGoogleSyncState(task.id, googleEventId, syncHash);
 }
 
+type ExportOutcome = "exported" | "updated" | "skipped" | "failed";
+
+type ExportResult = {
+  outcome: ExportOutcome;
+  /** Só existe quando o Google aceitou: é o que o lote grava depois. */
+  state?: TaskGoogleSyncState;
+};
+
+/**
+ * Nunca lança: a falha de uma tarefa vira `failed` e as outras seguem. Antes o
+ * erro subia pelo `Promise.all` de `runConcurrent` e derrubava a sincronização
+ * inteira, mesmo com as demais já exportadas.
+ */
 async function exportTaskToGoogle(
   accessToken: string,
   task: Task
-): Promise<"exported" | "updated" | "skipped"> {
+): Promise<ExportResult> {
   if (!shouldSyncTaskWithGoogle(task)) {
-    return "skipped";
+    return { outcome: "skipped" };
   }
 
   const payload = mapTaskToGoogleEvent(task);
   const nextHash = buildGoogleCalendarSyncHash(task);
 
   if (task.googleEventId && task.googleSyncHash === nextHash) {
-    return "skipped";
+    return { outcome: "skipped" };
   }
 
-  if (task.googleEventId) {
-    await updatePrimaryCalendarEvent(accessToken, task.googleEventId, payload);
-    await persistGoogleSyncState(task, task.googleEventId);
-    return "updated";
-  }
+  try {
+    if (task.googleEventId) {
+      await updatePrimaryCalendarEvent(accessToken, task.googleEventId, payload);
+      return {
+        outcome: "updated",
+        state: {
+          id: task.id,
+          googleEventId: task.googleEventId,
+          googleSyncHash: nextHash,
+        },
+      };
+    }
 
-  const created = await createPrimaryCalendarEvent(accessToken, payload);
-  if (!created.id) {
-    return "skipped";
-  }
+    const created = await createPrimaryCalendarEvent(accessToken, payload);
+    if (!created.id) {
+      return { outcome: "skipped" };
+    }
 
-  await persistGoogleSyncState(task, created.id);
-  return "exported";
+    return {
+      outcome: "exported",
+      state: {
+        id: task.id,
+        googleEventId: created.id,
+        googleSyncHash: nextHash,
+      },
+    };
+  } catch (error) {
+    if (__DEV__) {
+      console.warn("[google-calendar] Falha ao exportar tarefa.", error);
+    }
+
+    return { outcome: "failed" };
+  }
 }
 
 async function importEvents(
@@ -168,16 +203,19 @@ async function importEvents(
     .filter((eventId): eventId is string => Boolean(eventId));
   const existingIds = await listExistingGoogleEventIds(eventIds);
 
-  let imported = 0;
+  // Junta primeiro, grava uma vez: um INSERT por evento, cada um no seu commit,
+  // era o trecho que mais crescia com o tamanho da semana importada.
+  const newTasks: CreateTaskInput[] = [];
 
   for (const event of events) {
     const input = mapGoogleEventToTaskInput(event);
     if (!input || existingIds.has(input.googleEventId)) continue;
 
-    await createTask(input);
+    newTasks.push(input);
     existingIds.add(input.googleEventId);
-    imported += 1;
   }
+
+  const imported = await createTasks(newTasks);
 
   return imported;
 }
@@ -186,7 +224,7 @@ async function exportTasks(
   accessToken: string,
   startDate: string,
   endDate: string
-): Promise<{ exported: number; updated: number }> {
+): Promise<{ exported: number; updated: number; failed: number }> {
   const tasks = await listTasksInDateRange(startDate, endDate);
   const tasksToExport = tasks.filter(needsGoogleExport);
   const results = await runConcurrent(
@@ -195,9 +233,19 @@ async function exportTasks(
     (task) => exportTaskToGoogle(accessToken, task)
   );
 
+  const states = results
+    .map((result) => result.state)
+    .filter((state): state is TaskGoogleSyncState => Boolean(state));
+
+  await setTasksGoogleSyncState(states);
+
+  const count = (outcome: ExportOutcome) =>
+    results.filter((result) => result.outcome === outcome).length;
+
   return {
-    exported: results.filter((result) => result === "exported").length,
-    updated: results.filter((result) => result === "updated").length,
+    exported: count("exported"),
+    updated: count("updated"),
+    failed: count("failed"),
   };
 }
 
@@ -229,7 +277,16 @@ export async function syncTaskWithGoogleCalendar(task: Task): Promise<boolean> {
   }
 
   const result = await exportTaskToGoogle(accessToken, task);
-  return result === "exported" || result === "updated";
+
+  if (result.state) {
+    await setTaskGoogleSyncState(
+      result.state.id,
+      result.state.googleEventId,
+      result.state.googleSyncHash
+    );
+  }
+
+  return result.outcome === "exported" || result.outcome === "updated";
 }
 
 export async function syncGoogleCalendarForDate(
@@ -242,7 +299,7 @@ export async function syncGoogleCalendarForDate(
 
   const { start, end } = getWeekRange(anchorDate);
   const imported = await importEvents(accessToken, start, end);
-  const { exported, updated } = await exportTasks(accessToken, start, end);
+  const { exported, updated, failed } = await exportTasks(accessToken, start, end);
 
-  return { imported, exported, updated };
+  return { imported, exported, updated, failed };
 }

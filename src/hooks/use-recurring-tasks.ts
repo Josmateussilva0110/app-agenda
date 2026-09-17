@@ -23,16 +23,22 @@ export function useRecurringTasks() {
   const { error, setError, guard } = useWriteGuard();
   // Só a carga mais recente escreve no estado; a anterior é descartada.
   const loadIdRef = useRef(0);
+  // Depois da primeira carga o mural já tem o que mostrar: revalidar em
+  // silêncio evita desmontar a matriz inteira a cada rotina criada.
+  const hasLoadedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const loadId = ++loadIdRef.current;
-    setLoading(true);
+    if (!hasLoadedRef.current) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const result = await listRecurringTasks();
       if (loadId !== loadIdRef.current) return;
       setRecurringTasks(result);
+      hasLoadedRef.current = true;
     } catch (err) {
       if (loadId !== loadIdRef.current) return;
       setError(err instanceof Error ? err.message : "Erro ao carregar rotinas.");

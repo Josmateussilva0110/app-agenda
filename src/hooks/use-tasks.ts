@@ -22,16 +22,24 @@ export function useTasks(date: string) {
   // Cada carga recebe um número; só a mais recente pode escrever no estado,
   // senão trocar de dia rápido deixa a resposta lenta do dia anterior vencer.
   const loadIdRef = useRef(0);
+  // Qual data já está na tela. Recarregar a mesma data (depois de escrever, ou
+  // quando o Google responde) não troca a lista por spinner: desmontar e
+  // remontar todos os itens por uma consulta local de poucos milissegundos é o
+  // que fazia a tela piscar duas vezes a cada tarefa criada.
+  const loadedDateRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const loadId = ++loadIdRef.current;
-    setLoading(true);
+    if (loadedDateRef.current !== date) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const result = await listTasksByDate(date);
       if (loadId !== loadIdRef.current) return;
       setTasks(result);
+      loadedDateRef.current = date;
     } catch (err) {
       if (loadId !== loadIdRef.current) return;
       setError(err instanceof Error ? err.message : "Erro ao carregar tarefas.");

@@ -10,6 +10,7 @@ import type {
   TaskPeriod,
   UpdateTaskInput,
 } from "@/types/task";
+import { buildGoogleCalendarSyncHash } from "@/utils/task-sync-hash";
 
 type TaskRow = {
   id: string;
@@ -91,33 +92,73 @@ function createId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-export async function createTask(input: CreateTaskInput): Promise<Task> {
-  const db = await getDatabase();
+const INSERT_TASK_SQL = `INSERT INTO tasks (
+  id, title, description, date, period, status,
+  notify_at, notification_id, google_event_id,
+  google_calendar_sync, google_reminder_minutes, google_sync_hash,
+  created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?, ?, ?, ?, ?)`;
+
+/**
+ * Monta os parâmetros do INSERT a partir do input, e devolve também o id para
+ * quem precisar reler a linha. Existe para `createTask` e `createTasks`
+ * gravarem exatamente do mesmo jeito.
+ */
+function buildInsertParams(input: CreateTaskInput): {
+  id: string;
+  params: (string | number | null)[];
+} {
   const normalized = normalizeCreateInput(input);
   const now = new Date().toISOString();
   const id = createId();
 
-  await db.runAsync(
-    `INSERT INTO tasks (
-      id, title, description, date, period, status,
-      notify_at, notification_id, google_event_id,
-      google_calendar_sync, google_reminder_minutes, google_sync_hash,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?, ?, ?, NULL, ?, ?)`,
-    [
+  // Os valores que vão para o banco, calculados uma vez: o hash precisa ser
+  // destes, e não do input cru, senão o corte de título faria o hash gravado
+  // divergir do que a leitura recalcula.
+  const title = normalized.title.trim();
+  const description = normalized.description?.trim() ?? null;
+  const notifyAt = normalized.notifyAt ?? null;
+  const googleEventId = normalized.googleEventId ?? null;
+  const googleReminderMinutes = normalized.googleReminderMinutes ?? null;
+
+  // Tarefa que já chega com evento do Google veio de lá, e o conteúdo é o mesmo
+  // que está no servidor. Sem o hash aqui, o sync seguinte veria "mudou desde a
+  // última exportação" e devolveria o evento para o Google — reescrevendo
+  // duração e lembretes de um evento que ninguém tocou.
+  const googleSyncHash = googleEventId
+    ? buildGoogleCalendarSyncHash({
+        title,
+        description,
+        date: normalized.date,
+        notifyAt,
+        googleReminderMinutes,
+      })
+    : null;
+
+  return {
+    id,
+    params: [
       id,
-      normalized.title.trim(),
-      normalized.description?.trim() ?? null,
+      title,
+      description,
       normalized.date,
       normalized.period,
-      normalized.notifyAt ?? null,
-      normalized.googleEventId ?? null,
+      notifyAt,
+      googleEventId,
       normalized.googleCalendarSync ? 1 : 0,
-      normalized.googleReminderMinutes ?? null,
+      googleReminderMinutes,
+      googleSyncHash,
       now,
       now,
-    ]
-  );
+    ],
+  };
+}
+
+export async function createTask(input: CreateTaskInput): Promise<Task> {
+  const db = await getDatabase();
+  const { id, params } = buildInsertParams(input);
+
+  await db.runAsync(INSERT_TASK_SQL, params);
 
   const row = await db.getFirstAsync<TaskRow>(
     "SELECT * FROM tasks WHERE id = ?",
@@ -129,6 +170,32 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
   }
 
   return mapRow(row);
+}
+
+/**
+ * Insere várias tarefas numa transação só e devolve quantas entraram.
+ *
+ * Serve o caminho de importação, onde o chamador não usa as linhas criadas: sem
+ * isto era um INSERT mais um SELECT de releitura por evento, cada par no seu
+ * próprio commit. Falha no meio desfaz o lote inteiro — o que é o certo aqui,
+ * porque a próxima sincronização reimporta e `listExistingGoogleEventIds`
+ * impede duplicata.
+ */
+export async function createTasks(inputs: CreateTaskInput[]): Promise<number> {
+  if (inputs.length === 0) {
+    return 0;
+  }
+
+  const db = await getDatabase();
+  const rows = inputs.map(buildInsertParams);
+
+  await db.withTransactionAsync(async () => {
+    for (const { params } of rows) {
+      await db.runAsync(INSERT_TASK_SQL, params);
+    }
+  });
+
+  return rows.length;
 }
 
 export async function updateTask(
@@ -262,6 +329,32 @@ export async function setTaskGoogleSyncState(
     `UPDATE tasks SET google_event_id = ?, google_sync_hash = ? WHERE id = ?`,
     [googleEventId, googleSyncHash, id]
   );
+}
+
+export type TaskGoogleSyncState = {
+  id: string;
+  googleEventId: string | null;
+  googleSyncHash: string | null;
+};
+
+/** Mesma gravação, para um lote inteiro num commit só. */
+export async function setTasksGoogleSyncState(
+  states: TaskGoogleSyncState[]
+): Promise<void> {
+  if (states.length === 0) {
+    return;
+  }
+
+  const db = await getDatabase();
+
+  await db.withTransactionAsync(async () => {
+    for (const state of states) {
+      await db.runAsync(
+        `UPDATE tasks SET google_event_id = ?, google_sync_hash = ? WHERE id = ?`,
+        [state.googleEventId, state.googleSyncHash, state.id]
+      );
+    }
+  });
 }
 
 export async function getTaskByGoogleEventId(

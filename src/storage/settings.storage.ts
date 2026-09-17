@@ -35,13 +35,20 @@ function getCachedBoolean(key: string, fallback = false): boolean {
   return fallback;
 }
 
+// O cache é a fonte síncrona de verdade do app, então ele sabe quando a escrita
+// seria no-op. Sem esta guarda, criar uma tarefa gravava três preferências que
+// já tinham o valor gravado — uma delas duas vezes na mesma ação.
 async function writeString(key: string, value: string): Promise<void> {
+  if (cache.get(key) === value) return;
+
   cache.set(key, value);
   await setSetting(key, value);
 }
 
 async function writeBoolean(key: string, value: boolean): Promise<void> {
   const serialized = value ? "true" : "false";
+  if (cache.get(key) === serialized) return;
+
   cache.set(key, serialized);
   await setBooleanSetting(key, value);
 }
