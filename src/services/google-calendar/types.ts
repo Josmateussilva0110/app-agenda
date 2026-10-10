@@ -31,3 +31,10 @@ export type GoogleAccountProfile = {
   email: string;
   photoUrl: string | null;
 };
+
+/** Feriado de um dia, vindo do calendário público de feriados do Google. */
+export type Holiday = {
+  /** Chave `YYYY-MM-DD`. */
+  date: string;
+  name: string;
+};

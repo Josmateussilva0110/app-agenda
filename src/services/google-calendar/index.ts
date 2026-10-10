@@ -7,6 +7,10 @@ import {
 import { toGoogleCalendarUserMessage } from "@/services/google-calendar/api-errors";
 import { isGoogleCalendarConfigured } from "@/services/google-calendar/config";
 import {
+  clearHolidaysCache,
+  listHolidays,
+} from "@/services/google-calendar/holidays";
+import {
   deleteLinkedGoogleCalendarEvent,
   syncGoogleCalendarForDate,
   syncTaskWithGoogleCalendar,
@@ -14,13 +18,14 @@ import {
 import type {
   GoogleAccountProfile,
   GoogleCalendarSyncResult,
+  Holiday,
 } from "@/services/google-calendar/types";
 import { settingsStorage } from "@/storage/settings.storage";
 import type { Task } from "@/types/task";
 
 export type GoogleCalendarSyncStatus = "idle" | "syncing" | "error";
 
-export type { GoogleAccountProfile, GoogleCalendarSyncResult };
+export type { GoogleAccountProfile, GoogleCalendarSyncResult, Holiday };
 
 export const googleCalendarService = {
   isConfigured(): boolean {
@@ -53,6 +58,7 @@ export const googleCalendarService = {
   async disconnect(): Promise<void> {
     await disconnectGoogleAccount();
     await settingsStorage.setGoogleCalendarConnected(false);
+    clearHolidaysCache();
   },
 
   async syncForDate(date: string): Promise<GoogleCalendarSyncResult> {
@@ -62,6 +68,26 @@ export const googleCalendarService = {
     }
 
     return syncGoogleCalendarForDate(date);
+  },
+
+  /**
+   * Feriados entre `start` e `end` (chaves `YYYY-MM-DD`). Nunca lança: sem
+   * conta ou sem rede o calendário só fica sem a marcação.
+   */
+  async listHolidays(start: string, end: string): Promise<Holiday[]> {
+    const connected = await this.isConnected();
+    if (!connected) {
+      return [];
+    }
+
+    try {
+      return await listHolidays(start, end);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn("[google-calendar] Falha ao buscar feriados.", error);
+      }
+      return [];
+    }
   },
 
   async deleteLinkedEvent(googleEventId: string | null): Promise<void> {

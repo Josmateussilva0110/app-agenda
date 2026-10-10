@@ -21,11 +21,19 @@ type AgendaCalendarProps = {
   onNextMonth: () => void;
   /** Dias com tarefa pendente, por chave `YYYY-MM-DD`. */
   markers: Set<string>;
+  /** Nome do feriado por chave `YYYY-MM-DD`. */
+  holidays: Map<string, string>;
 };
 
-function describeDay(day: Date, hasPending: boolean): string {
-  const date = formatDayMonth(day);
-  return hasPending ? `${date}, tem tarefa pendente` : date;
+function describeDay(
+  day: Date,
+  hasPending: boolean,
+  holiday: string | undefined
+): string {
+  let label = formatDayMonth(day);
+  if (holiday) label += `, feriado: ${holiday}`;
+  if (hasPending) label += ", tem tarefa pendente";
+  return label;
 }
 
 /**
@@ -42,6 +50,7 @@ export const AgendaCalendar = memo(function AgendaCalendar({
   onPreviousMonth,
   onNextMonth,
   markers,
+  holidays,
 }: AgendaCalendarProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -75,7 +84,10 @@ export const AgendaCalendar = memo(function AgendaCalendar({
 
       <View style={styles.weekdays}>
         {WEEKDAYS_SHORT.map((weekday, index) => (
-          <Text key={`${weekday}-${index}`} style={styles.weekday}>
+          <Text
+            key={`${weekday}-${index}`}
+            style={[styles.weekday, index === 0 && styles.weekdaySunday]}
+          >
             {weekday}
           </Text>
         ))}
@@ -93,6 +105,8 @@ export const AgendaCalendar = memo(function AgendaCalendar({
           // ela, então os dois formatos têm que vir do mesmo lugar.
           const dateKey = formatDateKey(day);
           const hasPending = markers.has(dateKey);
+          const holiday = holidays.get(dateKey);
+          const sunday = day.getDay() === 0;
 
           return (
             <Pressable
@@ -101,11 +115,12 @@ export const AgendaCalendar = memo(function AgendaCalendar({
               style={styles.dayCell}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              accessibilityLabel={describeDay(day, hasPending)}
+              accessibilityLabel={describeDay(day, hasPending, holiday)}
             >
               <View
                 style={[
                   styles.dayBadge,
+                  !selected && holiday && styles.dayBadgeHoliday,
                   selected && styles.dayBadgeSelected,
                   !selected && today && styles.dayBadgeToday,
                 ]}
@@ -113,6 +128,8 @@ export const AgendaCalendar = memo(function AgendaCalendar({
                 <Text
                   style={[
                     styles.dayText,
+                    !selected && sunday && styles.dayTextSunday,
+                    !selected && holiday && styles.dayTextHoliday,
                     selected && styles.dayTextSelected,
                   ]}
                 >
@@ -205,6 +222,23 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     dayBadgeToday: {
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    // Fundo suave e número na cor de feriado: lê-se de relance, como num
+    // calendário de parede, sem competir com o ponto de tarefa pendente.
+    dayBadgeHoliday: {
+      backgroundColor: colors.calendarHolidayBg,
+    },
+    // Domingo só ganha a cor do número, sem o fundo: o fundo continua sendo o
+    // que distingue feriado, inclusive feriado que cai num domingo.
+    weekdaySunday: {
+      color: colors.calendarHoliday,
+    },
+    dayTextSunday: {
+      color: colors.calendarHoliday,
+    },
+    dayTextHoliday: {
+      color: colors.calendarHoliday,
+      fontWeight: "800",
     },
     dayText: {
       fontSize: 14,

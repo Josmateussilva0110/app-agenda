@@ -34,8 +34,17 @@ async function calendarRequest<T>(
   return (await response.json()) as T;
 }
 
-export async function listPrimaryCalendarEvents(
+export function listPrimaryCalendarEvents(
   accessToken: string,
+  timeMin: string,
+  timeMax: string
+): Promise<GoogleCalendarEvent[]> {
+  return listCalendarEvents(accessToken, "primary", timeMin, timeMax);
+}
+
+export async function listCalendarEvents(
+  accessToken: string,
+  calendarId: string,
   timeMin: string,
   timeMax: string
 ): Promise<GoogleCalendarEvent[]> {
@@ -56,7 +65,7 @@ export async function listPrimaryCalendarEvents(
     }
 
     const raw = await calendarRequest<unknown>(
-      `/calendars/primary/events?${params.toString()}`,
+      `/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
       accessToken
     );
 

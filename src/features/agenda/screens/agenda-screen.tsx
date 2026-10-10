@@ -18,6 +18,7 @@ import { ThemeToggleButton } from "@/features/agenda/components/theme-toggle-but
 import { NewTaskModal } from "@/features/agenda/components/new-task-modal";
 import { NotificationPermissionBanner } from "@/features/agenda/components/notification-permission-banner";
 import { useGoogleCalendar } from "@/hooks/use-google-calendar";
+import { useHolidays } from "@/hooks/use-holidays";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { useTaskMarkers } from "@/hooks/use-task-markers";
 import { useTasks } from "@/hooks/use-tasks";
@@ -51,6 +52,8 @@ export function AgendaScreen() {
     disconnect: disconnectGoogle,
     sync: syncGoogle,
   } = useGoogleCalendar();
+  const holidays = useHolidays(visibleMonth, googleConnected);
+  const selectedHoliday = holidays.get(selectedDateKey);
   const [refreshing, setRefreshing] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [, setBannerTick] = useState(0);
@@ -199,11 +202,17 @@ export function AgendaScreen() {
             onPreviousMonth={goToPreviousMonth}
             onNextMonth={goToNextMonth}
             markers={markers}
+            holidays={holidays}
           />
         </View>
 
         <View style={styles.dayHeader}>
           <Text style={styles.dayTitle}>{formatDayMonth(selectedDate)}</Text>
+          {selectedHoliday ? (
+            <View style={styles.holidayBadge}>
+              <Text style={styles.holidayText}>Feriado · {selectedHoliday}</Text>
+            </View>
+          ) : null}
           <Text style={styles.daySubtitle}>
             {emptyDay ? "Nenhuma tarefa neste dia" : `${tasks.length} tarefa(s)`}
           </Text>
@@ -297,6 +306,18 @@ const createStyles = (
       fontSize: 22,
       fontWeight: "800",
       color: colors.text,
+    },
+    holidayBadge: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.calendarHolidayBg,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    holidayText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.calendarHoliday,
     },
     daySubtitle: {
       fontSize: 14,
